@@ -646,7 +646,7 @@ class UserYoutubeInfo extends Controller {
         $videoDetailsData = json_decode($videoDetailsResponse->getBody(), true);
         // return $videoDetailsData;
 
-        $response = $client->request('GET', "https://www.googleapis.com/youtube/v3/search?key=AIzaSyBhnxmlAowrcFI7owW40YrsqI3xPVVk0IU&channelId=UCIaJua9IU_Db15LKAaq_ZYw&part=snippet,id&order=date&maxResults=50", [
+        $response = $client->request('GET', "https://www.googleapis.com/youtube/v3/search?key=" . env('TUBEDOMINATOR_GOOGLE_APIKEY') . "&channelId=UCIaJua9IU_Db15LKAaq_ZYw&part=snippet,id&order=date&maxResults=50", [
             'headers' => [
                 'Authorization' => $gToken,
             ],
@@ -1317,7 +1317,7 @@ class UserYoutubeInfo extends Controller {
         $response = $client->request('GET', 'https://youtube-data8.p.rapidapi.com/video/streaming-data/?id=VyHV0BRtdxo', [
             'headers' => [
                 'X-RapidAPI-Host' => 'youtube-data8.p.rapidapi.com',
-                'X-RapidAPI-Key' => 'd3beb4b3dfmsh3407fbcc0da6bc9p1b5fb8jsn9915cf83e826',
+                'X-RapidAPI-Key' => env("RapidApiKey"),
             ],
         ]);        
 
