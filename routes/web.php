@@ -16,3 +16,9 @@ use Illuminate\Support\Facades\Route;
 Route::get('/', function () {
     return view('welcome');
 });
+
+// $router->group(['prefix' => 'api'], function () use ($router) {
+//     $router->post('addToSavedIdeas', 'App\Http\Controllers\KeywordsController@addToSavedIdeas');
+//     $router->get('test', 'App\Http\Controllers\KeywordsController@test');
+//     $router->get('fetchKeywordStat', 'App\Http\Controllers\KeywordsController@fetchKeywordStat');
+// });
