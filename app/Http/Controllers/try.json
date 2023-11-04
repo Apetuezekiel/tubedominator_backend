@@ -1,0 +1,124 @@
+{
+    "search_metadata": {
+        "id": "654115c0e93ff477caecd809",
+        "status": "Success",
+        "json_endpoint": "https://serpapi.com/searches/1c86b15995066842/654115c0e93ff477caecd809.json",
+        "created_at": "2023-10-31 14:57:04 UTC",
+        "processed_at": "2023-10-31 14:57:04 UTC",
+        "youtube_url": "https://www.youtube.com/results?search_query=star+wars",
+        "raw_html_file": "https://serpapi.com/searches/1c86b15995066842/654115c0e93ff477caecd809.html",
+        "total_time_taken": 3.9
+    },
+    "search_parameters": {
+        "engine": "youtube",
+        "search_query": "star wars"
+    },
+    "search_information": {
+        "total_results": 98136943,
+        "video_results_state": "Results for exact spelling"
+    },
+    "ads_results": [
+        {
+            "position_on_page": 1,
+            "title": "Potter Quiz",
+            "link": "https://www.youtube.com/watch?v=KpnE9LxLcPk",
+            "website": "https://heywise.com/quiz/which-harry-potter-character-are-you/?utm_source=adwords&utm_medium=c-content&adid=600118197313&ad_group_id=138754755044&utm_campaign=HW-USA---Video---harry-potter-character-camp1---Desktop&utm_term=group1",
+            "channel": {
+                "name": "Heywise",
+                "link": "https://www.youtube.com/@heywisequizzes"
+            },
+            "description": "Take Quiz",
+            "length": "0:15",
+            "thumbnail": {
+                "static": "https://i1.ytimg.com/vi/KpnE9LxLcPk/0.jpg"
+            }
+        }
+    ],
+    "movie_results": [
+        {
+            "position_on_page": 2,
+            "title": "Star Wars: A New Hope",
+            "link": "https://www.youtube.com/watch?v=yYNSSNJ0z_U",
+            "channel": {
+                "name": "YouTube Movies & TV",
+                "verified": true
+            },
+            "length": "2:04:44",
+            "description": "Luke Skywalker begins a journey that will change the galaxy in Star Wars: Episode IV - A New Hope. Nineteen years after the ...",
+            "info": [
+                "Action & adventure • 1977",
+                "Actors: Mark Hamill, Harrison Ford, Carrie Fisher",
+                "Director: George Lucas"
+            ],
+            "extensions": [
+                "PG",
+                "4K",
+                "CC"
+            ],
+            "thumbnail": "https://i.ytimg.com/vi/yYNSSNJ0z_U/movieposter.jpg"
+        }
+    ],
+    "video_results": [
+        {
+            "position_on_page": 3,
+            "title": "I Bet You Didn't Know This...",
+            "link": "https://www.youtube.com/watch?v=eW218_fjZRw",
+            "channel": {
+                "name": "Star Wars Theory",
+                "link": "https://www.youtube.com/@StarWarsTheory",
+                "verified": true,
+                "thumbnail": "https://yt3.ggpht.com/ytc/APkrFKYTQNUjl0LKq4ZJfqb0JxreYcPORIrKhzMbipX8Mg=s68-c-k-c0x00ffffff-no-rj"
+            },
+            "published_date": "1 day ago",
+            "views": 39992,
+            "length": "11:44",
+            "description": "Today's video is a fun one where we'll examine the different dark side powers that many haven't ever heard of. SPOTIFY Daily ...",
+            "extensions": [
+                "New"
+            ],
+            "thumbnail": {
+                "static": "https://i.ytimg.com/vi/eW218_fjZRw/hq720.jpg?sqp=-oaymwEjCOgCEMoBSFryq4qpAxUIARUAAAAAGAElAADIQj0AgKJDeAE=&rs=AOn4CLA30PsJ7xKdv7ldNDDjtLaaVe-hSg"
+            }
+        },
+        
+        {
+            "position_on_page": 30,
+            "title": "Building Star Wars BATTLES in LEGO...",
+            "link": "https://www.youtube.com/watch?v=MrcYtYguc68",
+            "channel": {
+                "name": "BrickLi",
+                "link": "https://www.youtube.com/@BrickLi",
+                "thumbnail": "https://yt3.ggpht.com/6Sdx0AKUXiU-xzJe0ZwMmfvfV3O8jVIPw349feygeBn45nBUYCBPXxFJ6CZT2lqnvISLiz-qq9g=s68-c-k-c0x00ffffff-no-rj"
+            },
+            "published_date": "4 months ago",
+            "views": 1830348,
+            "length": "10:11",
+            "description": "In this video I used over 3000 LEGO minifigures to recreate almost all star wars battles from the movies! Join my channel to get ...",
+            "thumbnail": {
+                "static": "https://i.ytimg.com/vi/MrcYtYguc68/hqdefault.jpg?sqp=-oaymwEjCOADEI4CSFryq4qpAxUIARUAAAAAGAElAADIQj0AgKJDeAE=&rs=AOn4CLArtR15EMIjkCBFZSUQvKa_QR0H5g"
+            }
+        },
+        {
+            "position_on_page": 31,
+            "title": "Star Wars: Skywalker Saga Orchestral Suite",
+            "link": "https://www.youtube.com/watch?v=HAsZ0gdDAHo",
+            "channel": {
+                "name": "MitchellRidgaway",
+                "link": "https://www.youtube.com/@phantomitchell",
+                "thumbnail": "https://yt3.ggpht.com/NJ0_ofiucrvQp2lDwkVdLhw5YP_aNTIE2eyETIUrnr0lxetwGVrQmlKZ5g356HwD0nygajw3NWg=s68-c-k-c0x00ffffff-no-rj"
+            },
+            "published_date": "1 year ago",
+            "views": 104212,
+            "length": "1:05:10",
+            "description": "This arrangement of music is taken all from the Star Wars Saga Films. The selections of music were chosen based on personal ...",
+            "thumbnail": {
+                "static": "https://i.ytimg.com/vi/HAsZ0gdDAHo/hq720.jpg?sqp=-oaymwE9COgCEMoBSFryq4qpAy8IARUAAAAAGAElAADIQj0AgKJDeAHwAQH4Af4JgALQBYoCDAgAEAEYciBfKCEwDw==&rs=AOn4CLBk7_u6Hlry325Q_venp-WSbhezXQ"
+            }
+        }
+    ],
+    "serpapi_pagination": {
+        "current": "https://serpapi.com/search.json?engine=youtube&search_query=star+wars",
+        "next": "https://serpapi.com/search.json?engine=youtube&search_query=star+wars&sp=SBSCAQt5WU5TU05KMHpfVYIBC2VXMjE4X2ZqWlJ3ggELMXpzS3kydkgyRm-CAQtfSVhIRTByMkw4RYIBC2w2Y2V2M0lOanRvggELeURweDRYQ01fcVGCAQtOREtSdGpDRXZWQYIBC1hGMGtNVDM5R05ZggEYVUM4Q2JGbkRUWWtpVndlYXo4eTl3ZF9RggELOFlKemZ6Y0F1X2eCAQt0bzJTTW5nNHUxa4IBHFJEQ01VQ1pHWUpGVWl6U2F4LXlFbFFhRkRwNVGCAQtjN0syVEEwYkJwWYIBC1RLTnNUaEdmMGlzggEYVUNaR1lKRlVpelNheC15RWxRYUZEcDVRggELb3h0dnZSbVpGV1WCAQtISGJ0NnJQdUMzTYIBC0dOQkdjX2lzYm0wggELTXJjWXRZZ3VjNjiCAQtIQXNaMGdkREFIb7IBBgoECB8QAuoBAggC",
+        "next_page_token": "SBSCAQt5WU5TU05KMHpfVYIBC2VXMjE4X2ZqWlJ3ggELMXpzS3kydkgyRm-CAQtfSVhIRTByMkw4RYIBC2w2Y2V2M0lOanRvggELeURweDRYQ01fcVGCAQtOREtSdGpDRXZWQYIBC1hGMGtNVDM5R05ZggEYVUM4Q2JGbkRUWWtpVndlYXo4eTl3ZF9RggELOFlKemZ6Y0F1X2eCAQt0bzJTTW5nNHUxa4IBHFJEQ01VQ1pHWUpGVWl6U2F4LXlFbFFhRkRwNVGCAQtjN0syVEEwYkJwWYIBC1RLTnNUaEdmMGlzggEYVUNaR1lKRlVpelNheC15RWxRYUZEcDVRggELb3h0dnZSbVpGV1WCAQtISGJ0NnJQdUMzTYIBC0dOQkdjX2lzYm0wggELTXJjWXRZZ3VjNjiCAQtIQXNaMGdkREFIb7IBBgoECB8QAuoBAggC"
+    }
+}

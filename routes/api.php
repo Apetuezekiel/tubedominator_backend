@@ -3,7 +3,8 @@
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\KeywordsController;
-use App\Http\Controllers\UserYoutubeInfo;   
+use App\Http\Controllers\UserYoutubeInfo; 
+use App\Http\Controllers\UserAccessController; 
 
 
 /*
@@ -23,12 +24,15 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
 
 
 Route::middleware(['api.key'])->group(function () {
+    Route::post('sign-in', [UserAccessController::class, 'login']);
+    Route::post('sign-up', [UserAccessController::class, 'register']);
+    Route::get('dataFillerKeyword', [KeywordsController::class, 'dataFillerKeyword']);
     Route::post('saveUserYoutubeInfo', [UserYoutubeInfo::class, 'saveUserYoutubeInfo']);
 
     Route::post('addToSavedIdeas', [KeywordsController::class, 'addToSavedIdeas']);
     Route::get('getAllSavedIdeas', [KeywordsController::class, 'getAllSavedIdeas']);
-    Route::delete('deleteSavedIdea/{id}', [KeywordsController::class, 'deleteSavedIdea']);
-    Route::get('fetchKeywordStat', [KeywordsController::class, 'fetchKeywordStat']); 
+    Route::delete('deleteSavedIdea', [KeywordsController::class, 'deleteSavedIdea']);
+    Route::post('fetchKeywordStat', [KeywordsController::class, 'fetchKeywordStat']); 
     Route::get('fetchKeywordStatGoogle', [KeywordsController::class, 'fetchKeywordStatGoogle']);
     
     Route::get('getMySearchTerm', [KeywordsController::class, 'getMySearchTerm']);
@@ -39,9 +43,17 @@ Route::middleware(['api.key'])->group(function () {
     Route::get('fetchUserYoutubeInfo', [UserYoutubeInfo::class, 'fetchUserYoutubeInfo']);
     Route::get('getChannels', [UserYoutubeInfo::class, 'getChannels']);
     Route::get('getSavedUserYoutubeInfo', [UserYoutubeInfo::class, 'getSavedUserYoutubeInfo']);
+
     Route::get('getKeywordVideos', [UserYoutubeInfo::class, 'getKeywordVideos']);
     Route::post('saveUserKeyword', [KeywordsController::class, 'saveUserKeyword']);
     Route::get('getUserKeyword', [KeywordsController::class, 'getUserKeyword']);
+    Route::delete('deleteUserKeyword/{id}', [KeywordsController::class, 'deleteUserKeyword']);
+
+    Route::post('saveUserTemplate', [KeywordsController::class, 'saveUserTemplate']);
+    Route::post('updateUserTemplate', [KeywordsController::class, 'updateUserTemplate']);
+    Route::get('getUserTemplate', [KeywordsController::class, 'getUserTemplate']);
+    Route::post('deleteUserTemplate', [KeywordsController::class, 'deleteUserTemplate']);
+    
     Route::post('try', [KeywordsController::class, 'tryy']);
     Route::get('getSavedUserToken', [UserYoutubeInfo::class, 'getSavedUserToken']);
     Route::post('saveUserToken', [UserYoutubeInfo::class, 'saveUserToken']);
@@ -54,6 +66,7 @@ Route::middleware(['api.key'])->group(function () {
     Route::get('getMyChannels', [UserYoutubeInfo::class, 'getMyChannels']);
     Route::get('fetchMyYoutubeInfo', [UserYoutubeInfo::class, 'fetchMyYoutubeInfo']);
     Route::get('fetchMyPlaylists', [UserYoutubeInfo::class, 'fetchMyPlaylists']);
+    Route::get('fetchMyYoutubeVideo', [UserYoutubeInfo::class, 'fetchMyYoutubeVideo']);
     Route::get('fetchMyYoutubeVideos', [UserYoutubeInfo::class, 'fetchMyYoutubeVideos']);
     Route::put('updateMyYoutubeVideos', [UserYoutubeInfo::class, 'updateMyYoutubeVideos']);
     // Route::get('getMySearchTerm', [UserYoutubeInfo::class, 'getMySearchTerm']);
@@ -63,5 +76,6 @@ Route::middleware(['api.key'])->group(function () {
     
     // DRAFT POST
     Route::post('saveDraftPost', [KeywordsController::class, 'saveDraftPost']);
+    Route::delete('deleteDraftPost', [KeywordsController::class, 'deleteDraftPost']);
 
 });

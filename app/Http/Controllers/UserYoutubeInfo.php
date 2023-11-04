@@ -12,8 +12,39 @@ use Illuminate\Support\Facades\Hash;
 use Firebase\JWT\JWT;
 use Firebase\JWT\Key;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Storage;
+
 
 class UserYoutubeInfo extends Controller {
+    public function register(Request $request) {
+        return 123;
+        // Validate the input data
+        // $validatedData = $request->validate([
+        //     'channel_name' => 'required|string',
+        //     'description' => 'required|string',
+        //     'business_email' => 'required|email|unique:registrations',
+        //     'accept_terms' => 'required|boolean',
+        //     'channel_language' => 'required|string',
+        //     'competitive_channels' => 'required|string',
+        //     'keywords' => 'required|string',
+        //     'password' => 'required|string|min:6',
+        // ]);
+
+        $validatedData = $request->validate([
+            'fullname' => 'required|string',
+            'lastname' => 'required|string',
+            'email' => 'required|email|unique:registrations',
+            'password' => 'required|string|min:6',
+        ]);
+
+        // Create a new registration record
+        $registration = new Registration($validatedData);
+        $registration->password = Hash::make($validatedData['password']);
+        $registration->save();
+
+        return response()->json(['message' => 'Registration successful'], 201);
+    }
+    
     private function userExists($email, $user_id) {
         // Use the Eloquent model 'Registration' to query the database
         $channelUser = Registration::where("business_email", $email)
@@ -24,7 +55,7 @@ class UserYoutubeInfo extends Controller {
         return $channelUser ? true : false;
     }
 
-    // public function fetchUserYoutubeInfo(){
+    // public fun   ction fetchUserYoutubeInfo(){
     //     $apiKey = env("RapidApiKey");
 
     //     $externalApiUrl = 'https://youtube-v311.p.rapidapi.com/search/';
@@ -336,14 +367,14 @@ class UserYoutubeInfo extends Controller {
         return response()->json($videoDetails); // Return the processed video details as JSON
     }
 
-    public function fetchMyYoutubeVideos(Request $request){
+    public function fetchMyYoutubeVideo(Request $request){
         $this->validate($request, [
-            'videoIds' => 'required',
-            'channel_id' => 'required'
+            'channel_id' => 'required', 
+            'video_id' => 'required'
         ]);
-
+    
         $gToken = $request->header("gToken");
-
+    
         try {
             $user_id = $this->grabUserFromToken($request);
         } catch (\Exception $e) {
@@ -353,10 +384,12 @@ class UserYoutubeInfo extends Controller {
                 return new Response(['status' => 'Failed', 'message' => 'Invalid token'], 401);
             }
         }
-
-        $client = new Client();
     
-        $videoDetailsResponse = $client->request('GET', "https://www.googleapis.com/youtube/v3/videos?key=" . env('TUBEDOMINATOR_GOOGLE_APIKEY') . "&channelId=$request->channel_id&part=statistics,snippet,id,status,topicDetails,player,localizations,liveStreamingDetails&forContentOwner=true&maxResults=25&id=" . $request->videoIds, [
+        $client = new Client();
+
+    
+        // Use videoIds to fetch video details
+        $videoDetailsResponse = $client->request('GET', "https://www.googleapis.com/youtube/v3/videos?key=" . env('TUBEDOMINATOR_GOOGLE_APIKEY') . "&channelId=$request->channel_id&part=statistics,snippet,id,status,topicDetails,player,localizations,liveStreamingDetails&forContentOwner=true&maxResults=25&id=" . $request->video_id, [
             'headers' => [
                 'Authorization' => $gToken,
             ],
@@ -364,53 +397,35 @@ class UserYoutubeInfo extends Controller {
     
         $videoDetailsData = json_decode($videoDetailsResponse->getBody(), true);
     
-        // Process video details similar to combinedData
-        // foreach ($videoDetailsData['items'] as $index => $item) {
-        //     $videoDetailItem = [
-        //         'publishedAt' => $item['snippet']['publishedAt'],
-        //         'title' => $item['snippet']['title'],
-        //         'description' => $item['snippet']['description'],
-        //         'thumbnails' => $item['snippet']['thumbnails']['standard'],
-        //         'categoryId' => $item['snippet']['categoryId'],
-        //         'channelId' => $item['snippet']['channelId'],
-        //         'channelTitle' => $item['snippet']['channelTitle'],
-        //         'tags' => $item['snippet']['tags'],
-        //         // 'defaultAudioLanguage' => $item['snippet']['defaultAudioLanguage'],
-        //         'liveBroadcastContent' => $item['snippet']['liveBroadcastContent'],
-        //         'player' => $item['player']['embedHtml'],
-        //         'videoId' => $item["id"], // Use video ID from $videoIds array
-        //         'madeForKids' => $item['status']['madeForKids'],
-        //         'privacyStatus' => $item['status']['privacyStatus'],
-        //         'uploadStatus' => $item['status']['uploadStatus'],
-        //         'publicStatsViewable' => $item['status']['publicStatsViewable'],
-        //         'topicCategories' => $item['topicDetails']['topicCategories'],
-        //         // 'actualEndTime' => $item['liveStreamingDetails']['actualEndTime'],
-        //         // 'actualStartTime' => $item['liveStreamingDetails']['actualStartTime'],
-        //         // 'scheduledStartTime' => $item['liveStreamingDetails']['scheduledStartTime'],
-        //         'viewCount' => $item['statistics']['viewCount'],
-        //         'commentCount' => $item['statistics']['commentCount'],
-        //         'likeCount' => $item['statistics']['likeCount'],
-        //         'favoriteCount' => $item['statistics']['favoriteCount'],
-        //     ];
-    
-        //     $videoDetails[] = $videoDetailItem;
-        // }
-
         $videoDetails = [];
-
+    
         foreach ($videoDetailsData['items'] as $index => $item) {
+            $channelId = isset($item['snippet']['channelId']) ? $item['snippet']['channelId'] : "";
+            
+            // Construct the channel link
+            $channelLink = "https://www.youtube.com/channel/$channelId";
+            $videoId = isset($item["id"]) ? $item["id"] : "";
+
+                // Extract video ID from the player embed code
+
+            // preg_match('/src="https:\/\/www\.youtube\.com\/embed\/([^"]+)"/', $item['player']['embedHtml'], $matches);
+            // $videoId = isset($matches[1]) ? $matches[1] : "";
+
+            // Construct the video link
+            $videoLink = "https://www.youtube.com/watch?v=$videoId";
+            
             $videoDetailItem = [
                 'publishedAt' => isset($item['snippet']['publishedAt']) ? $item['snippet']['publishedAt'] : "",
                 'title' => isset($item['snippet']['title']) ? $item['snippet']['title'] : "",
                 'description' => isset($item['snippet']['description']) ? $item['snippet']['description'] : "",
                 'thumbnails' => isset($item['snippet']['thumbnails']['standard']) ? $item['snippet']['thumbnails']['standard'] : "",
                 'categoryId' => isset($item['snippet']['categoryId']) ? $item['snippet']['categoryId'] : "",
-                'channelId' => isset($item['snippet']['channelId']) ? $item['snippet']['channelId'] : "",
+                'channelId' => $channelId,
                 'channelTitle' => isset($item['snippet']['channelTitle']) ? $item['snippet']['channelTitle'] : "",
                 'tags' => isset($item['snippet']['tags']) ? $item['snippet']['tags'] : "",
                 'liveBroadcastContent' => isset($item['snippet']['liveBroadcastContent']) ? $item['snippet']['liveBroadcastContent'] : "",
                 'player' => isset($item['player']['embedHtml']) ? $item['player']['embedHtml'] : "",
-                'videoId' => isset($item["id"]) ? $item["id"] : "",
+                'videoId' => $videoId,
                 'madeForKids' => isset($item['status']['madeForKids']) ? $item['status']['madeForKids'] : "",
                 'privacyStatus' => isset($item['status']['privacyStatus']) ? $item['status']['privacyStatus'] : "",
                 'uploadStatus' => isset($item['status']['uploadStatus']) ? $item['status']['uploadStatus'] : "",
@@ -420,14 +435,109 @@ class UserYoutubeInfo extends Controller {
                 'commentCount' => isset($item['statistics']['commentCount']) ? $item['statistics']['commentCount'] : "",
                 'likeCount' => isset($item['statistics']['likeCount']) ? $item['statistics']['likeCount'] : "",
                 'favoriteCount' => isset($item[ 'statistics']['favoriteCount']) ? $item['statistics']['favoriteCount'] : "",
+                'channelLink' => $channelLink,
+                'videoLink' => $videoLink,
             ];
-
             $videoDetails[] = $videoDetailItem;
         }
-    
         return response()->json($videoDetails);
     }
 
+    public function fetchMyYoutubeVideos(Request $request){
+        $this->validate($request, [
+            'channel_id' => 'required', 
+            'keyword' => 'required'
+        ]);
+    
+        $gToken = $request->header("gToken");
+    
+        try {
+            $user_id = $this->grabUserFromToken($request);
+        } catch (\Exception $e) {
+            if ($e->getMessage() === 'Expired token') {
+                return new Response(['status' => 'Failed', 'message' => 'Expired token'], 401);
+            } else {
+                return new Response(['status' => 'Failed', 'message' => 'Invalid token'], 401);
+            }
+        }
+    
+        $client = new Client();
+    
+        // Perform a search to get videoIds
+        $searchResponse = $client->request('GET', "https://youtube.googleapis.com/youtube/v3/search?part=snippet&maxResults=3&order=date&key=" . env('TUBEDOMINATOR_GOOGLE_APIKEY') . "&q=" . urlencode($request->keyword));
+    
+        $searchData = json_decode($searchResponse->getBody(), true);
+    
+        // Extract videoIds from search results
+        $videoIds = [];
+        foreach ($searchData['items'] as $item) {
+            if (isset($item['id']['videoId'])) {
+                $videoIds[] = $item['id']['videoId'];
+            }
+        }
+        
+        // Slice the array to only 10 items
+        $videoIds = array_slice($videoIds, 0, 5);
+    
+        // Use videoIds to fetch video details
+        $videoDetailsResponse = $client->request('GET', "https://www.googleapis.com/youtube/v3/videos?key=" . env('TUBEDOMINATOR_GOOGLE_APIKEY') . "&channelId=$request->channel_id&part=statistics,snippet,id,status,topicDetails,player,localizations,liveStreamingDetails&forContentOwner=true&maxResults=25&id=" . implode(",", $videoIds), [
+            'headers' => [
+                'Authorization' => $gToken,
+            ],
+        ]);
+        $videoDetailsData = json_decode($videoDetailsResponse->getBody(), true);
+    
+        $videoDetails = [];
+    
+        foreach ($videoDetailsData['items'] as $index => $item) {
+            $channelId = isset($item['snippet']['channelId']) ? $item['snippet']['channelId'] : "";
+            $channelDetailsResponse = $client->request('GET', "https://www.googleapis.com/youtube/v3/channels?key=" . env('TUBEDOMINATOR_GOOGLE_APIKEY') . "&id=" . $channelId . "&part=statistics,snippet,contentDetails,topicDetails,brandingSettings,localizations", [
+                'headers' => [
+                    'Authorization' => $gToken,
+                ],
+            ]);
+    
+            $channelDetailsData = json_decode($channelDetailsResponse->getBody(), true);
+            $subscriberCount = $channelDetailsData['items'][0]['statistics']['subscriberCount'] ?? null;
+            
+            // Construct the channel link
+            $channelLink = "https://www.youtube.com/channel/$channelId";
+            $videoId = isset($item["id"]) ? $item["id"] : "";
+
+            $videoLink = "https://www.youtube.com/watch?v=$videoId";
+
+
+            
+            $videoDetailItem = [
+                'publishedAt' => isset($item['snippet']['publishedAt']) ? $item['snippet']['publishedAt'] : "",
+                'title' => isset($item['snippet']['title']) ? $item['snippet']['title'] : "",
+                'description' => isset($item['snippet']['description']) ? $item['snippet']['description'] : "",
+                'thumbnails' => isset($item['snippet']['thumbnails']['standard']) ? $item['snippet']['thumbnails']['standard'] : "",
+                'categoryId' => isset($item['snippet']['categoryId']) ? $item['snippet']['categoryId'] : "",
+                'channelId' => $channelId,
+                'channelTitle' => isset($item['snippet']['channelTitle']) ? $item['snippet']['channelTitle'] : "",
+                'tags' => isset($item['snippet']['tags']) ? $item['snippet']['tags'] : "",
+                'liveBroadcastContent' => isset($item['snippet']['liveBroadcastContent']) ? $item['snippet']['liveBroadcastContent'] : "",
+                'player' => isset($item['player']['embedHtml']) ? $item['player']['embedHtml'] : "",
+                'videoId' => $videoId,
+                'madeForKids' => isset($item['status']['madeForKids']) ? $item['status']['madeForKids'] : "",
+                'privacyStatus' => isset($item['status']['privacyStatus']) ? $item['status']['privacyStatus'] : "",
+                'uploadStatus' => isset($item['status']['uploadStatus']) ? $item['status']['uploadStatus'] : "",
+                'publicStatsViewable' => isset($item['status']['publicStatsViewable']) ? $item['status']['publicStatsViewable'] : "",
+                'topicCategories' => isset($item['topicDetails']['topicCategories']) ? $item['topicDetails']['topicCategories'] : "",
+                'viewCount' => isset($item['statistics']['viewCount']) ? $item['statistics']['viewCount'] : "",
+                'commentCount' => isset($item['statistics']['commentCount']) ? $item['statistics']['commentCount'] : "",
+                'likeCount' => isset($item['statistics']['likeCount']) ? $item['statistics']['likeCount'] : "",
+                'favoriteCount' => isset($item[ 'statistics']['favoriteCount']) ? $item['statistics']['favoriteCount'] : "",
+                'channelLink' => $channelLink,
+                'videoLink' => $videoLink,
+                'subscriberCount' => $subscriberCount,
+            ];
+            $videoDetails[] = $videoDetailItem;
+        }
+        return response()->json($videoDetails);
+    }
+    
     public function getAllVideosChatGPT(Request $request){
         // $this->validate($request, [
         //     'videoIds' => 'required',
@@ -670,49 +780,104 @@ class UserYoutubeInfo extends Controller {
     }
 
     public function updateMyYoutubeVideos(Request $request){
-        // try {
-            $this->validateRequest($request);
-    
-            $gToken = $request->header("gToken");
-    
-            // $user_id = $this->grabUserFromToken($request);
+        try {
+            $user_id = $this->grabUserFromToken($request);
+        } catch (\Exception $e) {
+            if ($e->getMessage() === 'Expired token') {
+                return new Response(['status' => 'Failed', 'message' => 'Expired token'], 401);
+            } else {
+                return new Response(['status' => 'Failed', 'message' => 'Invalid token'], 401);
+            }
+        }
 
-            $videoSnippetData = [
-                'id' => $request->videoId,
-                "snippet" => [
-                    "categoryId" => $request->categoryId,
-                    "title" => $request->videoTitle,
-                    "description" => $request->videoDescription,
-                    "tags" => $request->videoTags,
-                    "thumbnails" => [
-                        "high" => [
-                            "url" => $request->videoThumbnailUrl,
-                            "height" => $request->videoThumbnailHeight,
-                            "width" => $request->videoThumbnailWidth
-                        ]
-                    ]
+        $gToken = $request->header("gToken");
+        $videoThumbnail = $request->videoThumbnail;
+        $thumbnailUrl = null;
+
+        if ($videoThumbnail) {
+            if (preg_match('/^data:image\/(\w+);base64,/', $videoThumbnail, $matches)) {
+                $extension = $matches[1];
+                $data = substr($videoThumbnail, strpos($videoThumbnail, ',') + 1);
+                $data = str_replace(' ', '+', $data);
+                $decodedThumbnail = base64_decode($data);
+
+                if ($decodedThumbnail) {
+                    $filename = 'thumbnail_' . time() . '.' . $extension;
+                    $thumbnailPath = 'thumbnails/' . $filename;
+                    $thumbnailUrl = 'https://tubedominator.com/storage/' . $thumbnailPath;
+                    Storage::disk('public')->put($thumbnailPath, $decodedThumbnail);
+                }
+            } else {
+                $thumbnailUrl = null;
+            }
+        }
+
+        $videoSnippetData = [
+            'id' => $request->videoId,
+            "snippet" => [
+                "categoryId" => $request->categoryId,
+                "title" => $request->videoTitle,
+            ]
+        ];
+
+        if (!empty($request->videoDescription)) {
+            $videoSnippetData['snippet']['description'] = $request->videoDescription;
+        }
+
+        if (!empty($request->videoTags)) {
+            $videoSnippetData['snippet']['tags'] = $request->videoTags;
+        }
+
+        if ($thumbnailUrl !== null) {
+            // Define the path where you want to save the file
+            $filePath = storage_path('app/descriptions'); // Change the path as needed
+
+            // Create the directory if it doesn't exist
+            if (!is_dir($filePath)) {
+                mkdir($filePath, 0755, true);
+            }
+
+            // Generate a unique filename or use a specific one
+            $filename = 'video_description.txt'; // Change the filename as needed
+
+            // Write the description to the file
+            file_put_contents($filePath . '/' . $filename, $request->videoThumbnailHeight,);
+
+            $videoSnippetData["snippet"]["thumbnails"] = [
+                "high" => [
+                    "url" => $thumbnailUrl,
+                    "height" => $request->videoThumbnailHeight,
+                    "width" => $request->videoThumbnailWidth
                 ]
             ];
-    
-            $client = new Client();
-    
-            $videoDetailsResponse = $client->request('PUT', "https://www.googleapis.com/youtube/v3/videos?key=" . env('TUBEDOMINATOR_GOOGLE_APIKEY') . "&part=snippet", [
+        }
+
+        $client = new Client();
+
+        try {
+            $videoDetailsResponse = $client->request('PUT', "https://www.googleapis.com/youtube/v3/videos?&part=snippet", [
                 'headers' => [
                     'Authorization' => $gToken,
                 ],
                 'json' => $videoSnippetData
             ]);
-    
-            $videoDetailsData = json_decode($videoDetailsResponse->getBody(), true);
-    
-            return response()->json($videoDetailsData);
-        // } catch (\Exception $e) {
-        //     if ($e->getMessage() === 'Expired token') {
-        //         return new Response(['status' => 'Failed', 'message' => 'Expired token'], 401);
-        //     } else {
-        //         return new Response(['status' => 'Failed', 'message' => 'Invalid token'], 401);
-        //     }
-        // }
+        
+            if ($videoDetailsResponse->getStatusCode() === 200) {
+                $videoDetailsData = json_decode($videoDetailsResponse->getBody(), true);
+        
+                return response()->json(['status' => 'success', 'data' => [$videoDetailsData, $videoSnippetData]]);
+            } else {
+                // Handle other response codes here (e.g., 401 Unauthorized)
+                $errorResponse = json_decode($videoDetailsResponse->getBody(), true);
+                return response()->json(['status' => 'error', 'message' => 'API Error: ' . $errorResponse['error']['message']], $videoDetailsResponse->getStatusCode());
+            }
+
+            return response()->json(['status' => 'success', 'data' => $videoSnippetData]);
+        } catch (\Exception $e) {
+            // Handle general exceptions
+            return response()->json(['status' => 'error', 'message' => $e->getMessage()]);
+        }
+
     }
     
     private function validateRequest(Request $request){
@@ -1326,6 +1491,68 @@ class UserYoutubeInfo extends Controller {
         $responseData = json_decode($body);
     
         return $responseData;
+    }
+
+    // YOUTUBE POSTS
+    public function saveUserVideoToDraft(Request $request){
+        // $this->validate($request, [
+        //     'channel_name' => 'required|string',
+        //     'channel_id' => 'required|string',
+        //     'channel_language' => 'required|string',
+        //     'description' => 'required|string',
+        //     'business_email' => 'required|string',
+        //     'accept_terms' => 'required|string',
+        //     'keywords' => 'required|string',
+        // ]);
+
+        try {
+            $user_id = $this->grabUserFromToken($request);
+        } catch (\Exception $e) {
+            if ($e->getMessage() === 'Expired token') {
+                return new Response(['status' => 'Failed', 'message' => 'Expired token'], 401);
+            } else {
+                return new Response(['status' => 'Failed', 'message' => 'Invalid token'], 401);
+            }
+        }
+
+        // $key = env('JWT_SECRET');
+        // $token = explode(" ", $request->header("authorization"))[1];
+        
+        $newUser = new draftPost();
+        $newUser->channel_name = $request->channel_name;
+        $newUser->channel_id = $request->channel_id;
+        $newUser->channel_language = $request->channel_language;
+        $newUser->description = $request->description;
+        $newUser->business_email = $userBusinessEmail;
+        $newUser->accept_terms = $request->accept_terms;
+        $newUser->keywords = $request->keywords;
+        $newUser->firstName = $request->firstName;
+        $newUser->lastName = $request->lastName;
+        $newUser->fullName = $request->fullName;
+        $newUser->channelFirstName = $request->channelFirstName;
+        $newUser->channelLastName = $request->channelLastName;
+        $newUser->channelFullName = $request->channelFullName;
+        $newUser->channel_image_link = $request->channel_image_link;
+        $newUser->user_id = $request->user_id;
+        $newUser->clerkProfile = $request->clerkProfile;
+        // $newUser->token = $token;
+        $newUser->save();
+
+        // Generate JWT token
+        $jwtSecret = env('JWT_SECRET'); 
+        $jwtSecretALG = env('JWT_SECRET_ALG');
+
+        $jwtPayload = [
+            'user_id' => $newUser->user_id,
+        ];
+
+        $jwtToken = JWT::encode($jwtPayload, $jwtSecret, $jwtSecretALG);
+
+        return new Response([
+            'success' => 'User channel details saved',
+            'message' => 'Channel added successfully',
+            'token' => $jwtToken,
+        ], 200);
     }
     
      private function grabUserFromToken($request){

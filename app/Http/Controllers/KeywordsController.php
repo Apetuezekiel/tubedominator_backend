@@ -10,8 +10,10 @@ use App\Models\SavedIdea;
 use App\Models\userSavedKeyword;
 use App\Models\draftPost;
 use App\Models\bookmarkedSearchTerm;
+use App\Models\userTemplate;
 use Firebase\JWT\JWT;
 use Firebase\JWT\Key;
+use Illuminate\Support\Facades\Storage;
 
 class KeywordsController extends Controller
 {
@@ -131,8 +133,10 @@ class KeywordsController extends Controller
     public function fetchKeywordStat(Request $request){
         $this->validate($request, [
             'keyword' => 'required|string',
+            'countryCode' => 'required|string',
+            'languageCode' => 'required|string',
         ]);
-
+        
         try {
             $user_id = $this->grabUserFromToken($request);
         } catch (\Exception $e) {
@@ -143,18 +147,35 @@ class KeywordsController extends Controller
             }
         }
         
-        
+        // Get the values from the request
+        $keyword = $request->keyword;
+        $countryCode = $request->countryCode;
+        $languageCode = $request->languageCode;
+
+        // Set up the Guzzle client
         $client = new Client();
-    
-        // $response = $client->request('GET', "https://keyword-research-for-youtube.p.rapidapi.com/yttags.php?keyword=$request->keyword", [
-        //     'headers' => [
-        //         'X-RapidAPI-Host' => env("RapidApiYoutubeKwHOST"),
-        //         'X-RapidAPI-Key' => env("RapidApiKey"),
-        //     ],
-        // ]);
-        $response = $client->request('GET', "https://zylalabs.com/api/2180/keyword+youtube+api/2000/get+keywords?keyword=$request->keyword", [
+
+        // Prepare the request body as an array
+        $requestBody = [
+            'country' => $countryCode,
+            'language' => $languageCode,
+            'metrics' => true,
+            'metrics_currency' => 'USD',
+            'type' => 'suggestions',
+            'complete' => true,
+            'output' => 'json',
+            'apikey' => env('KEYWORD_TOOL_APIKEY'),
+            'keyword' => $keyword,
+        ];
+
+        // Encode the request body as JSON
+        $requestBodyJson = json_encode($requestBody);
+
+        // Make the API request
+        $response = $client->request('POST', 'https://api.keywordtool.io/v2/search/suggestions/youtube?apikey=' . env('KEYWORD_TOOL_APIKEY'), [
+            'body' => $requestBodyJson,
             'headers' => [
-                'Authorization' => "Bearer " . env("ZYLA_APIKEY"),
+                'content-type' => 'application/json',
             ],
         ]);
         
@@ -162,25 +183,167 @@ class KeywordsController extends Controller
         $body = $response->getBody()->getContents();
         $responseData = json_decode($body);
 
-    
-        // Loop through the exact_keyword array and calculate Estimated Potential Views
-        foreach ($responseData->exact_keyword as $keyword) {
-            $estimatedViews = $this->calculateEstimatedViews($keyword->monthlysearch, $keyword->competition_score, $keyword->overallscore);
-            $keyword->estimated_views = $estimatedViews;
+        // $responseData = $this->dataFillerKeyword;
+
+        // Assuming $responseData contains the provided JSON response
+
+        $selectedObjects = [];
+        $limit = 12;
+        $objectCount = 0;
+
+        foreach ($responseData->results as $key => $objects) {
+            if (is_array($objects)) {
+                foreach ($objects as $object) {
+                    $selectedObjects[] = $object;
+                    $objectCount++;
+                    if ($objectCount === $limit) {
+                        break 2;
+                    }
+                }
+            }
         }
-    
-        // Loop through the related_keywords array and calculate Estimated Potential Views
-        foreach ($responseData->related_keywords as &$relatedKeyword) {
-            $estimatedViews = $this->calculateEstimatedViews($relatedKeyword->monthlysearch, $relatedKeyword->competition_score, $relatedKeyword->overallscore);
-            $relatedKeyword->estimated_views = $estimatedViews;
+
+        // $flattenedArray = call_user_func_array('array_merge', $selectedObjects);
+        $firstTwentyItems = array_slice($selectedObjects, 0, 5);
+
+        foreach ($firstTwentyItems as $key => $result) {
+            $searchTerm = $result->string;
+            $m1 = $result->m1;
+            $m12 = $result->m12;
+            $cmp = $result->cmp;
+            // return $searchTerm;
+
+            // Make the call to serpYoutubeData for each search term.
+            $searchResults = $this->serpYoutubeData($searchTerm);
+            $videoResults = $searchResults->video_results;
+
+            // Calculate median views for the video results.
+            $medianViews = $this->calculateMedianVideoViews($videoResults);
+            $trend = $this->calculateTrendPercentage($m1, $m12);
+            $competition = $this->analyzeCompetition($cmp);
+
+            // Add the median views to the current result in $responseData.
+            $firstTwentyItems[$key]->estimated_views = $medianViews;
+            $firstTwentyItems[$key]->trend = $trend;
+            $firstTwentyItems[$key]->keyword = $firstTwentyItems[$key]->string;
+            $firstTwentyItems[$key]->monthlysearch = $firstTwentyItems[$key]->volume;
+            $firstTwentyItems[$key]->difficulty = $competition;
         }
-    
+
+        $exact_keyword = [];
+        $related_keywords = [];
+        
+        if (count($firstTwentyItems) > 0) {
+            $exact_keyword = array_slice($firstTwentyItems, 0, 1);
+            $related_keywords = array_slice($firstTwentyItems, 1);
+        }
+
         return new Response([
-            'response' => $responseData
-        ], $statusCode);
+            'success' => true,
+            'response' => [
+                'exact_keyword' => $exact_keyword,
+                'related_keywords' => $related_keywords,
+                'all' => $firstTwentyItems
+            ]
+        ]);
+    }
+
+    private function calculateMedianVideoViews($videoResults) {
+        $views = array_column($videoResults, 'views');
+        sort($views);
+        $totalVideos = count($views);
+        $median = 0;
+    
+        if ($totalVideos % 2 === 0) {
+            // For an even number of videos, take the average of the middle two elements
+            $midIndex = $totalVideos / 2;
+            $median = ($views[$midIndex - 1] + $views[$midIndex]) / 2;
+        } else {
+            // For an odd number of videos, pick the middle element
+            $midIndex = ($totalVideos - 1) / 2;
+            $median = $views[$midIndex];
+        }
+    
+        return $median;
+    }
+
+    private function calculateTrendPercentage($m1, $m2){
+        $months = 12; // Define the number of months from m1 to m12
+
+        $initialMonthValue = $m1;
+        $finalMonthValue = $m2;
+
+        $percentageTrend = (($finalMonthValue - $initialMonthValue) / $initialMonthValue) * 100;
+
+        $averageTrend = $percentageTrend / $months;
+        return $averageTrend;
+    }
+
+    private function calculateTrendPercentageOld($data){
+        $months = 12; // Define the number of months from m1 to m12
+
+        $result = collect($data)->map(function ($item) use ($months) {
+            $initialMonthValue = $item['m1'];
+            $finalMonthValue = $item['m12'];
+
+            $percentageTrend = (($finalMonthValue - $initialMonthValue) / $initialMonthValue) * 100;
+
+            $averageTrend = $percentageTrend / $months;
+
+            return [
+                'string' => $item['string'],
+                'averageTrendPercentage' => $averageTrend
+            ];
+        });
+
+        return $result;
     }
     
-    private function calculateEstimatedViews($monthlySearch, $competitionScore, $overallScore) {
+    private function serpYoutubeData($keyword) {
+        $params = [
+            'query' => [
+                'engine' => 'youtube',
+                'search_query' => $keyword,
+                'api_key' => env('SERP_API_APIKEY'),
+            ]
+        ];
+        $client = new Client();
+
+        try {
+            $response = $client->request('GET', 'https://serpapi.com/search', $params);
+            
+            $statusCode = $response->getStatusCode();
+            $body = $response->getBody()->getContents();
+            $responseData = json_decode($body);
+    
+            return $responseData;
+    
+        
+        } catch (\GuzzleHttp\Exception\RequestException $e) {
+            // Handle request exceptions
+            echo "Error: " . $e->getMessage();
+        }
+
+        $statusCode = $response->getStatusCode();
+        $body = $response->getBody()->getContents();
+        $responseData = json_decode($body);
+
+        return $responseData;
+    }
+
+    private function analyzeCompetition($cmp){
+        if ($cmp >= 0.00 && $cmp <= 0.33) {
+            return 'Low';
+        } elseif ($cmp > 0.33 && $cmp <= 0.66) {
+            return 'Medium';
+        } elseif ($cmp > 0.66 && $cmp <= 1.00) {
+            return 'High';
+        } else {
+            return 'Invalid cmp value'; // Or handle the out-of-range values as required
+        }
+    }
+
+    private function calculateEstimatedViewsOld($monthlySearch, $competitionScore, $overallScore) {
 
         // Calculate Potential Click-Through Rate (CTR)
         if ($competitionScore >= 0 && $competitionScore <= 30) {
@@ -355,6 +518,160 @@ class KeywordsController extends Controller
         }
     }
     
+    // USER TEMPLATES
+    public function saveUserTemplate(Request $request) {
+        // Validation rules
+        $rules = [
+            'title' => 'required',
+            'content' => 'required',
+            'email' => 'required|email', // Assuming 'email' should be an email
+        ];
+    
+        $this->validate($request, $rules);
+    
+        try {
+            $user_id = $this->grabUserFromToken($request);
+        } catch (\Exception $e) {
+            if ($e->getMessage() === 'Expired token') {
+                return new Response(['status' => 'Failed', 'message' => 'Expired token'], 401);
+            } else {
+                return new Response(['status' => 'Failed', 'message' => 'Invalid token'], 401);
+            }
+        }
+    
+        $userTemplate = new UserTemplate(); // Assuming the model name is 'UserTemplate' (singular form)
+        $userTemplate->title = $request->title;
+        $userTemplate->content = $request->content; // Adjust for the correct content field
+        $userTemplate->email = $request->email;
+        $userTemplate->user_id = $user_id;
+        $userTemplate->save();
+    
+        return new Response(['success' => true, 'message' => 'Saved user Template'], 200);
+    }
+
+    public function getUserTemplate(Request $request) {
+        $this->validate($request, [
+            'email' => 'required',
+        ]);
+
+        try {
+            $user_id = $this->grabUserFromToken($request);
+        } catch (\Exception $e) {
+            if ($e->getMessage() === 'Expired token') {
+                return new Response(['status' => 'Failed', 'message' => 'Expired token'], 401);
+            } else {
+                return new Response(['status' => 'Failed', 'message' => 'Invalid token'], 401);
+            }
+        }
+
+        $email = $request->email;
+
+        // Retrieve all user templates for the authenticated user in descending order
+        $userTemplates = UserTemplate::where('user_id', $user_id)
+            ->where('email', $request->email)
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        if ($userTemplates->isEmpty()) {
+            return new Response(['success' => "trueNut", 'data' => 'No saved Templates'], 200);
+        }
+
+        $formattedUserTemplates = $userTemplates->map(function ($template) {
+            $template->created_at_formatted = date('M j, Y', strtotime($template->created_at));
+            return $template;
+        });
+    
+        return new Response(['success' => true, 'data' => $formattedUserTemplates], 200);
+
+    }
+
+    public function updateUserTemplate(Request $request) {
+        // Validation rules
+        $rules = [
+            'title' => 'required',
+            'content' => 'required',
+            'template_id' => 'required',
+            'email' => 'required|email', // Assuming 'email' should be an email
+        ];
+    
+        $this->validate($request, $rules);
+
+        $email = $request->email;
+        $templateId = $request->template_id;
+    
+        try {
+            $user_id = $this->grabUserFromToken($request);
+        } catch (\Exception $e) {
+            if ($e->getMessage() === 'Expired token') {
+                return new Response(['status' => 'Failed', 'message' => 'Expired token'], 401);
+            } else {
+                return new Response(['status' => 'Failed', 'message' => 'Invalid token'], 401);
+            }
+        }
+    
+        // Find the existing user template by ID
+        $userTemplate = UserTemplate::find($templateId);
+    
+        if (!$userTemplate) {
+            return new Response(['status' => 'Failed', 'message' => 'Template not found'], 404);
+        }
+    
+        // Check if the template belongs to the authenticated user
+        if (
+            $userTemplate->user_id !== $user_id ||
+            $userTemplate->email !== $email
+        ) {
+            return new Response(['status' => 'Failed', 'message' => 'Unauthorized access'], 403);
+        }
+    
+        // Update the template with the provided data
+        $userTemplate->title = $request->title;
+        $userTemplate->content = $request->content; // Adjust for the correct content field
+        $userTemplate->save();
+    
+        return new Response(['success' => true, 'message' => 'Updated user Template'], 200);
+    }
+    
+    public function deleteUserTemplate(Request $request) {
+        // Validate the request
+        $request->validate([
+            'email' => 'required|string',
+            'template_id' => 'required',
+        ]);
+    
+        // Get the user ID from the token
+        try {
+            $user_id = $this->grabUserFromToken($request);
+        } catch (\Exception $e) {
+            if ($e->getMessage() === 'Expired token') {
+                return response()->json(['status' => 'Failed', 'message' => 'Expired token'], 401);
+            } else {
+                return response()->json(['status' => 'Failed', 'message' => 'Invalid token'], 401);
+            }
+        }
+
+        $email = $request->email;
+        $templateId = $request->template_id;
+    
+        // Find the user template by ID
+        $userTemplate = UserTemplate::find($templateId);
+
+        if (!$userTemplate) {
+            return new Response(['status' => 'Failed', 'message' => 'Template not found'], 404);
+        }
+
+        // Check if the template belongs to the authenticated user
+        if ($userTemplate->user_id !== $user_id || $userTemplate->email !== $email) {
+            return new Response(['status' => 'Failed', 'message' => 'Unauthorized access'], 403);
+        }
+
+        // Delete the user template
+        $userTemplate->delete();
+
+        return new Response(['success' => true, 'message' => 'User Template deleted successfully'], 200);
+    }
+
+    // USER KEYWORDS
     public function saveUserKeyword(Request $request) {
         $this->validate($request, [
             'keyword' => 'required',
@@ -410,9 +727,10 @@ class KeywordsController extends Controller
         $email = $request->email;
 
         $userKeywords = userSavedKeyword::where('user_id', $user_id)
-        ->where('email', $email)
-        ->select('keyword', 'email', 'search_volume', 'created_at')
-        ->get();
+            ->where('email', $email)
+            ->select('keyword', 'email', 'search_volume', 'created_at', 'id')
+            ->orderBy('created_at', 'desc') // Sort by 'created_at' in descending order
+            ->get();
 
         if ($userKeywords->isEmpty()) {
             return new Response(['success' => "trueNut", 'data' => 'No saved keywords'], 200);
@@ -424,18 +742,42 @@ class KeywordsController extends Controller
         });
     
         return new Response(['success' => true, 'data' => $formattedUserKeywords], 200);
-
     }
 
-    private function grabUserFromToken($request){
-        $key = env('JWT_SECRET');
-        $token = explode(" ", $request->header("authorization"))[1];
-        $decoded = JWT::decode($token, new Key($key, 'HS256'));
-        $decodedArr = json_decode(json_encode($decoded), true);
+    public function deleteUserKeyword(Request $request, $id){
+        // Get the user ID from the token
+        try {
+            $user_id = $this->grabUserFromToken($request);
+        } catch (\Exception $e) {
+            if ($e->getMessage() === 'Expired token') {
+                return new Response(['status' => 'Failed', 'message' => 'Expired token'], 401);
+            } else {
+                return new Response(['status' => 'Failed', 'message' => 'Invalid token'], 401);
+            }
+        }
 
-        $user_id = $decodedArr['user_id'];
+        // Find the search term by user ID and keyword
+        $savedKeyword = userSavedKeyword::where('user_id', $user_id)->where('id', $id)->first();
+    
+        if (!$savedKeyword) {
+            // If the search term does not exist
+            return response()->json(['success' => false, 'error' => 'Keyword not found'], 404);
+        }
         
-        return $user_id;
+        $savedKeyword->delete();
+
+        $userSavedKeywords = userSavedKeyword::where('user_id', $user_id)
+        ->where('id', '!=', $id)
+        ->select('keyword', 'email', 'search_volume', 'created_at', 'id')
+        ->orderBy('created_at', 'desc')
+        ->get();
+
+        $formattedUserKeywords = $userSavedKeywords->map(function ($keyword) {
+            $keyword->created_at_formatted = date('M j, Y', strtotime($keyword->created_at));
+            return $keyword;
+        });
+    
+        return response()->json(['success' => true, 'data' => $formattedUserKeywords, 'message' => 'Keyword deleted successfully'], 200);
     }
 
     // SEARCH TERMS
@@ -580,11 +922,9 @@ class KeywordsController extends Controller
             'video_title' => 'nullable',
             'video_description' => 'nullable',
             'video_tags' => 'nullable',
-            // 'video_thumbnail' => 'image|mimes:jpeg,png,jpg,gif|max:2048',
+            'video_thumbnail' => 'nullable',
         ]);
 
-        // return 1234;
-    
         try {
             $user_id = $this->grabUserFromToken($request);
         } catch (\Exception $e) {
@@ -595,14 +935,33 @@ class KeywordsController extends Controller
             }
         }
 
-
-        $thumbnailUrl;
+        $thumbnailUrl = null;
         $video_id = $request->video_id;
         $search_term = $request->search_term;
         $video_title = $request->video_title;
         $video_description = $request->video_description;
-        $video_tags = $request->video_tags;
-        $video_thumbnail = $request->file('video_thumbnail'); // Retrieve the uploaded file.
+        $video_tags = $request->video_tags; 
+        $video_thumbnail = $request->video_thumbnail; // Retrieve the uploaded file.
+
+        if ($video_thumbnail) {
+            // Check if $video_thumbnail is a Base64 encoded image
+            if (preg_match('/^data:image\/(\w+);base64,/', $video_thumbnail, $matches)) {
+                $extension = $matches[1]; // Get the file extension (e.g., 'png', 'jpg')
+                $data = substr($video_thumbnail, strpos($video_thumbnail, ',') + 1);
+                $data = str_replace(' ', '+', $data);
+                $decodedThumbnail = base64_decode($data);
+    
+                if ($decodedThumbnail) {
+                    // Generate a unique filename and save the decoded thumbnail to a specific directory
+                    $filename = 'thumbnail_' . time() . '.' . $extension;
+                    $thumbnailPath = 'thumbnails/' . $filename;
+                    $thumbnailUrl = 'https://tubedominator.com/storage/' . $thumbnailPath;
+                    Storage::disk('public')->put($thumbnailPath, $decodedThumbnail);
+                }
+            } else {
+                $thumbnailUrl = $video_thumbnail;
+            }
+        }
     
         $existingUserDraft = draftPost::where('video_id', $request->video_id)->where('user_id', $user_id)->first();
         
@@ -613,18 +972,18 @@ class KeywordsController extends Controller
             $existingUserDraft->video_title = $video_title;
             $existingUserDraft->video_description = $video_description; 
             $existingUserDraft->video_tags = $video_tags;
-    
-            // Handle the thumbnail image if it was uploaded.
-            if ($video_thumbnail) {
-                // Store the uploaded thumbnail in a temporary location.
-                $path = $video_thumbnail->store('temp');
-                // Generate a public URL for the stored thumbnail.
-                $thumbnailUrl = 'https://tubedominator.com/storage/thumbnails/' . $path;
-                $existingUserDraft->video_thumbnail = $thumbnailUrl;
-            }
-    
+            $existingUserDraft->video_thumbnail = $thumbnailUrl;
             $existingUserDraft->save();
 
+            // Handle the thumbnail image if it was uploaded.
+            // if ($video_thumbnail) {
+            //     // Store the uploaded thumbnail in a temporary location.
+            //     $path = $video_thumbnail->store('temp');
+            //     // Generate a public URL for the stored thumbnail.
+            //     $thumbnailUrl = 'https://tubedominator.com/storage/thumbnails/' . $path;
+            //     $existingUserDraft->video_thumbnail = $thumbnailUrl;
+            // }
+    
             if ($video_thumbnail){
                 return new Response(['success' => true, 'thumbNail' => $thumbnailUrl, 'message' => 'Updated User draft'], 200);
             }
@@ -640,16 +999,17 @@ class KeywordsController extends Controller
         $userDraft->video_title = $video_title;
         $userDraft->video_description = $video_description;
         $userDraft->video_tags = $video_tags;
+        $userDraft->video_thumbnail = $thumbnailUrl;
     
-        // Handle the thumbnail image if it was uploaded.
-        if ($video_thumbnail) {
-            // Store the uploaded thumbnail in a temporary location.
-            $path = $video_thumbnail->store('temp');
+        // // Handle the thumbnail image if it was uploaded.
+        // if ($video_thumbnail) {
+        //     // Store the uploaded thumbnail in a temporary location.
+        //     $path = $video_thumbnail->store('temp');
     
-            // Generate a public URL for the stored thumbnail.
-            $thumbnailUrl = 'https://tubedominator.com/storage/thumbnails/' . $path;
-            $userDraft->video_thumbnail = $thumbnailUrl;
-        }
+        //     // Generate a public URL for the stored thumbnail.
+        //     $thumbnailUrl = 'https://tubedominator.com/storage/thumbnails/' . $path;
+        //     $userDraft->video_thumbnail = $thumbnailUrl;
+        // }
     
         $userDraft->save();
     
@@ -662,7 +1022,7 @@ class KeywordsController extends Controller
 
     public function getDraftPost(Request $request) {
         $this->validate($request, [
-            'email' => 'required',
+            'video_id' => 'required',
         ]);
 
         try {
@@ -675,24 +1035,19 @@ class KeywordsController extends Controller
             }
         }
 
-        $email = $request->email;
+        $video_id = $request->video_id;
 
-        $userSearchTerms = bookmarkedSearchTerm::where('user_id', $user_id)
-        ->where('email', $email)
-        ->select('keyword', 'email', 'search_volume', 'created_at')
+        $userDraft = draftPost::where('user_id', $user_id)
+        ->where('video_id', $video_id)
+        ->select('video_id', 'search_term', 'video_title', 'video_description', 'video_tags', 'video_thumbnail')
         ->get();
 
-        if ($userSearchTerms->isEmpty()) {
-            return new Response(['success' => "trueNut", 'data' => 'No bookmarked search terms'], 200);
+        if ($userDraft->isEmpty()) {
+            return new Response(['success' => "trueNut", 'data' => 'No saved Drafts'], 200);
         }
-
-        $formattedUserSearchTerms = $userSearchTerms->map(function ($searchTerm) {
-            $searchTerm->created_at_formatted = date('M j, Y', strtotime($searchTerm->created_at));
-            return $searchTerm;
-        });
     
         return new Response(
-            ['success' => true, 'data' => $formattedUserSearchTerms
+            ['success' => true, 'data' => $userDraft 
         ], 200);
 
     }
@@ -700,7 +1055,7 @@ class KeywordsController extends Controller
     public function deleteDraftPost(Request $request) {
         // Validate the request
         $request->validate([
-            'keyword' => 'required|string',
+            'video_id' => 'required|string',
         ]);
     
         // Get the user ID from the token
@@ -715,23 +1070,132 @@ class KeywordsController extends Controller
         }
     
         // Get the keyword from the request
-        $keyword = $request->keyword;
+        $video_id = $request->video_id;
     
         // Find the search term by user ID and keyword
-        $searchTerm = bookmarkedSearchTerm::where('user_id', $user_id)->where('keyword', $keyword)->first();
+        $draftPost = draftPost::where('user_id', $user_id)->where('video_id', $video_id)->first();
     
-        if (!$searchTerm) {
+        if (!$draftPost) {
             // If the search term does not exist
-            return response()->json(['success' => false, 'error' => 'Search Term not found'], 404);
+            return response()->json(['success' => false, 'error' => 'draft post not found'], 404);
         }
     
         // Check if the user is authorized to delete this search term
-        if ($searchTerm->user_id === $user_id && $searchTerm->keyword === $keyword) {
+        if ($draftPost->user_id === $user_id && $draftPost->video_id === $video_id) {
             // Delete the search term
-            $searchTerm->delete();
-            return response()->json(['success' => true, 'message' => 'Search Term deleted successfully'], 200);
+            $draftPost->delete();
+            return response()->json(['success' => true, 'message' => 'Draft deleted successfully'], 200);
         } else {
-            return response()->json(['success' => false, 'error' => 'Unauthorized to delete this Search Term'], 401);
+            return response()->json(['success' => false, 'error' => 'Unauthorized to delete this Draft'], 401);
         }
     }
+
+    // HELPER FUNCTIONS
+    private function grabUserFromToken($request){
+        $key = env('JWT_SECRET');
+        $token = explode(" ", $request->header("authorization"))[1];
+        $decoded = JWT::decode($token, new Key($key, 'HS256'));
+        $decodedArr = json_decode(json_encode($decoded), true);
+
+        $user_id = $decodedArr['user_id'];
+        
+        return $user_id;
+    }
+
+    public function dataFillerKeyword() {
+        $data = [
+            "results" => [
+                "" => [
+                    [
+                        "string" => "affiliate marketing",
+                        "volume" => 248000,
+                        // ... rest of the data ...
+                    ],
+                    [
+                        "string" => "digital marketing",
+                        "volume" => 300000,
+                        // ... rest of the data ...
+                    ],
+                    [
+                        "string" => "social media marketing",
+                        "volume" => 180000,
+                        // ... rest of the data ...
+                    ],
+                    [
+                        "string" => "email marketing",
+                        "volume" => 220000,
+                        // ... rest of the data ...
+                    ],
+                    [
+                        "string" => "content marketing",
+                        "volume" => 195000,
+                        // ... rest of the data ...
+                    ]
+                ],
+                "affiliate marketing" => [
+                    [
+                        "string" => "affiliate marketing",
+                        "volume" => 248000,
+                        // ... rest of the data ...
+                    ],
+                    [
+                        "string" => "affiliate marketing for beginners",
+                        "volume" => 49800,
+                        // ... rest of the data ...
+                    ],
+                    [
+                        "string" => "advanced affiliate marketing",
+                        "volume" => 72000,
+                        // ... rest of the data ...
+                    ],
+                    [
+                        "string" => "affiliate marketing strategies",
+                        "volume" => 155000,
+                        // ... rest of the data ...
+                    ],
+                    [
+                        "string" => "affiliate marketing tools",
+                        "volume" => 105600,
+                        // ... rest of the data ...
+                    ]
+                ],
+                "something else" => [
+                    [
+                        "string" => "sample keyword 1",
+                        "volume" => 50000,
+                        // ... rest of the data ...
+                    ],
+                    [
+                        "string" => "sample keyword 2",
+                        "volume" => 75000,
+                        // ... rest of the data ...
+                    ]
+                ],
+                "something else 2" => [
+                    [
+                        "string" => "example keyword 1",
+                        "volume" => 10000,
+                        // ... rest of the data ...
+                    ],
+                    [
+                        "string" => "example keyword 2",
+                        "volume" => 88000,
+                        // ... rest of the data ...
+                    ]
+                ]
+            ]
+        ];
+    
+        // Loop through each dataset under "results" and add "sortable": true
+        foreach ($data['results'] as &$datasets) {
+            foreach ($datasets as &$dataset) {
+                $dataset['sortable'] = true;
+            }
+        }
+    
+        // Convert the array to JSON and return it
+        return response()->json($data);
+    }
+    
+    
 }
