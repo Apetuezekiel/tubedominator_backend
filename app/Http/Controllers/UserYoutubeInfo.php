@@ -174,21 +174,11 @@ class UserYoutubeInfo extends Controller {
     public function getMyChannels(Request $request) {    
         $gToken = $request->header("gToken");
 
-        try {
-            $user_id = $this->grabUserFromToken($request);
-        } catch (\Exception $e) {
-            if ($e->getMessage() === 'Expired token') {
-                return new Response(['status' => 'Failed', 'message' => 'Expired token'], 401);
-            } else {
-                return new Response(['status' => 'Failed', 'message' => 'Invalid token'], 401);
-            }
-        }
-
         $client = new Client();
     
         $response = $client->request('GET', "https://www.googleapis.com/youtube/v3/channels?key=" . env('TUBEDOMINATOR_GOOGLE_APIKEY') . "&part=contentDetails,snippet,statistics&mine=true", [
             'headers' => [
-                'Authorization' => $gToken,
+                'Authorization' => "Bearer $gToken",
             ],
         ]);
     
@@ -1300,7 +1290,7 @@ class UserYoutubeInfo extends Controller {
         // $key = env('JWT_SECRET');
         // $token = explode(" ", $request->header("authorization"))[1];
         
-        $newUser = new Registration();
+        $newUser = Registration::where("id", $request->userRecordId)->first();
         $newUser->channel_name = $request->channel_name;
         $newUser->channel_id = $request->channel_id;
         $newUser->channel_language = $request->channel_language;
@@ -1308,9 +1298,9 @@ class UserYoutubeInfo extends Controller {
         $newUser->business_email = $userBusinessEmail;
         $newUser->accept_terms = $request->accept_terms;
         $newUser->keywords = $request->keywords;
-        $newUser->firstName = $request->firstName;
-        $newUser->lastName = $request->lastName;
-        $newUser->fullName = $request->fullName;
+        // $newUser->firstName = $request->firstName;
+        // $newUser->lastName = $request->lastName;
+        // $newUser->fullName = $request->fullName;
         $newUser->channelFirstName = $request->channelFirstName;
         $newUser->channelLastName = $request->channelLastName;
         $newUser->channelFullName = $request->channelFullName;
@@ -1331,7 +1321,7 @@ class UserYoutubeInfo extends Controller {
         $jwtToken = JWT::encode($jwtPayload, $jwtSecret, $jwtSecretALG);
 
         return new Response([
-            'success' => 'User channel details saved',
+            'success' => true,
             'message' => 'Channel added successfully',
             'token' => $jwtToken,
         ], 200);
