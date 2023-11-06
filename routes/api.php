@@ -70,6 +70,7 @@ Route::middleware(['api.key'])->group(function () {
     Route::get('fetchMyPlaylists', [UserYoutubeInfo::class, 'fetchMyPlaylists']);
     Route::get('fetchMyYoutubeVideo', [UserYoutubeInfo::class, 'fetchMyYoutubeVideo']);
     Route::get('fetchMyYoutubeVideos', [UserYoutubeInfo::class, 'fetchMyYoutubeVideos']);
+    Route::get('fetchSerpYoutubeVideos', [KeywordsController::class, 'fetchSerpYoutubeVideos']);
     Route::put('updateMyYoutubeVideos', [UserYoutubeInfo::class, 'updateMyYoutubeVideos']);
     // Route::get('getMySearchTerm', [UserYoutubeInfo::class, 'getMySearchTerm']);
     // EXPERIMENT

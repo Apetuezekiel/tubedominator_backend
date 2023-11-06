@@ -248,6 +248,29 @@ class KeywordsController extends Controller
         ]);
     }
 
+    public function fetchSerpYoutubeVideos(Request $request){
+        $this->validate($request, [
+            'keyword' => 'required'
+        ]);
+    
+        $gToken = $request->header("gToken");
+    
+        try {
+            $user_id = $this->grabUserFromToken($request);
+        } catch (\Exception $e) {
+            if ($e->getMessage() === 'Expired token') {
+                return new Response(['status' => 'Failed', 'message' => 'Expired token'], 401);
+            } else {
+                return new Response(['status' => 'Failed', 'message' => 'Invalid token'], 401);
+            }
+        }
+
+        $videoDetails = $this->serpYoutubeData($request->keyword)->video_results;
+        $slicedVideoDetails = array_slice($videoDetails, 0, 10);
+        
+        return response()->json($slicedVideoDetails);
+    }
+
     private function calculateMedianVideoViews($videoResults) {
         $views = array_column($videoResults, 'views');
         sort($views);
