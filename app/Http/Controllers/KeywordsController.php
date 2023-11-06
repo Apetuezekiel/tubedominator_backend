@@ -382,6 +382,8 @@ class KeywordsController extends Controller
             'keyword_diff' => 'required',
             'potential_views' => 'required',
             'email' => 'required',
+            'trend' => 'required',
+            'category' => 'required',
         ]);
 
         try {
@@ -396,7 +398,7 @@ class KeywordsController extends Controller
 
         $email = $request->email;
         $newVideoIdea = $request->video_ideas;
-        $fetchSavedIdea = SavedIdea::where('video_ideas', $newVideoIdea)->first();
+        $fetchSavedIdea = SavedIdea::where('video_ideas', $newVideoIdea)->where("user_id", $user_id)->first();
 
         if (!$fetchSavedIdea) { 
             $savedIdea = new SavedIdea(); 
@@ -406,11 +408,15 @@ class KeywordsController extends Controller
             $savedIdea->search_volume = $request->search_volume;
             $savedIdea->keyword_diff = $request->keyword_diff;
             $savedIdea->potential_views = $request->potential_views;
+            $savedIdea->trend = $request->trend;
+            $savedIdea->category = $request->category;
             $savedIdea->save();
             // $fetchSavedIdea->search_volume = $request->search_volume;
         } else {
             $fetchSavedIdea->keyword_diff = $request->keyword_diff;
             $fetchSavedIdea->potential_views = $request->potential_views;
+            $fetchSavedIdea->trend = $request->trend;
+            $fetchSavedIdea->category = $request->category;
             $fetchSavedIdea->save();
         }
 
@@ -509,7 +515,7 @@ class KeywordsController extends Controller
     
             if ($savedIdea->user_id === $user_id && $savedIdea->email === $email) {
                 $savedIdea->delete();
-                return response()->json(['success' => false, 'message' => 'Idea deleted successfully'], 200);
+                return response()->json(['success' => true, 'message' => 'Idea deleted successfully'], 200);
             } else {
                 return response()->json(['success' => false, 'error' => 'Unauthorized to delete this idea'], 401);
             }

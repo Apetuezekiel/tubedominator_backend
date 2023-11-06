@@ -33,7 +33,7 @@ Route::middleware(['api.key'])->group(function () {
 
     Route::post('addToSavedIdeas', [KeywordsController::class, 'addToSavedIdeas']);
     Route::get('getAllSavedIdeas', [KeywordsController::class, 'getAllSavedIdeas']);
-    Route::delete('deleteSavedIdea', [KeywordsController::class, 'deleteSavedIdea']);
+    Route::delete('deleteSavedIdea/{id}', [KeywordsController::class, 'deleteSavedIdea']);
     Route::post('fetchKeywordStat', [KeywordsController::class, 'fetchKeywordStat']); 
     Route::get('fetchKeywordStatGoogle', [KeywordsController::class, 'fetchKeywordStatGoogle']);
     
