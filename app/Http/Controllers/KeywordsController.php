@@ -269,6 +269,53 @@ class KeywordsController extends Controller
 
         $videoDetails = $this->serpYoutubeData($request->keyword)->video_results;
         $slicedVideoDetails = array_slice($videoDetails, 0, 10);
+
+        foreach ($slicedVideoDetails['items'] as $index => $item) {
+            $channelId = isset($item['snippet']['channelId']) ? $item['snippet']['channelId'] : "";
+            $channelDetailsResponse = $client->request('GET', "https://www.googleapis.com/youtube/v3/channels?key=" . env('TUBEDOMINATOR_GOOGLE_APIKEY') . "&id=" . $channelId . "&part=statistics,snippet,contentDetails,topicDetails,brandingSettings,localizations", [
+                'headers' => [
+                    'Authorization' => $gToken,
+                ],
+            ]);
+    
+            $channelDetailsData = json_decode($channelDetailsResponse->getBody(), true);
+            $subscriberCount = $channelDetailsData['items'][0]['statistics']['subscriberCount'] ?? null;
+            
+            // Construct the channel link
+            $channelLink = "https://www.youtube.com/channel/$channelId";
+            $videoId = isset($item["id"]) ? $item["id"] : "";
+
+            $videoLink = "https://www.youtube.com/watch?v=$videoId";
+
+
+            
+            $videoDetailItem = [
+                'publishedAt' => isset($item['snippet']['publishedAt']) ? $item['snippet']['publishedAt'] : "",
+                'title' => isset($item['snippet']['title']) ? $item['snippet']['title'] : "",
+                'description' => isset($item['snippet']['description']) ? $item['snippet']['description'] : "",
+                'thumbnails' => isset($item['snippet']['thumbnails']['standard']) ? $item['snippet']['thumbnails']['standard'] : "",
+                'categoryId' => isset($item['snippet']['categoryId']) ? $item['snippet']['categoryId'] : "",
+                'channelId' => $channelId,
+                'channelTitle' => isset($item['snippet']['channelTitle']) ? $item['snippet']['channelTitle'] : "",
+                'tags' => isset($item['snippet']['tags']) ? $item['snippet']['tags'] : "",
+                'liveBroadcastContent' => isset($item['snippet']['liveBroadcastContent']) ? $item['snippet']['liveBroadcastContent'] : "",
+                'player' => isset($item['player']['embedHtml']) ? $item['player']['embedHtml'] : "",
+                'videoId' => $videoId,
+                'madeForKids' => isset($item['status']['madeForKids']) ? $item['status']['madeForKids'] : "",
+                'privacyStatus' => isset($item['status']['privacyStatus']) ? $item['status']['privacyStatus'] : "",
+                'uploadStatus' => isset($item['status']['uploadStatus']) ? $item['status']['uploadStatus'] : "",
+                'publicStatsViewable' => isset($item['status']['publicStatsViewable']) ? $item['status']['publicStatsViewable'] : "",
+                'topicCategories' => isset($item['topicDetails']['topicCategories']) ? $item['topicDetails']['topicCategories'] : "",
+                'viewCount' => isset($item['statistics']['viewCount']) ? $item['statistics']['viewCount'] : "",
+                'commentCount' => isset($item['statistics']['commentCount']) ? $item['statistics']['commentCount'] : "",
+                'likeCount' => isset($item['statistics']['likeCount']) ? $item['statistics']['likeCount'] : "",
+                'favoriteCount' => isset($item[ 'statistics']['favoriteCount']) ? $item['statistics']['favoriteCount'] : "",
+                'channelLink' => $channelLink,
+                'videoLink' => $videoLink,
+                'subscriberCount' => $subscriberCount,
+            ];
+            $videoDetails[] = $videoDetailItem;
+        }
         
         return response()->json($slicedVideoDetails);
     }
@@ -424,6 +471,8 @@ class KeywordsController extends Controller
         $email = $request->email;
         $newVideoIdea = $request->video_ideas;
         $fetchSavedIdea = SavedIdea::where('video_ideas', $newVideoIdea)->where("user_id", $user_id)->first();
+
+        // return $fetchSavedIdea;
 
         if (!$fetchSavedIdea) { 
             $savedIdea = new SavedIdea(); 

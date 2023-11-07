@@ -33,8 +33,10 @@ class UserAccessController extends Controller
         $registration->email = $request->email;
         $registration->password = Hash::make($request->password);
         $registration->save();
+
+        $user = Registration::where('email', $request->email)->first();
     
-        return response()->json(['success' => true, 'message' => 'Sign Up Successful'], 201);
+        return response()->json(['success' => true, 'message' => 'Sign Up Successful', 'userRecordId' => $user->id], 201);
     }
 
     public function addUserId(Request $request) {
@@ -78,6 +80,13 @@ class UserAccessController extends Controller
         // Replace the following line with your token generation logic
         // $token = $user->createToken('authToken')->accessToken;
 
-        return response()->json(['success' => true, 'message' => 'Login Successful', 'accessLevel' => $accessLevel, 'userRecordId' => $user->id, 'user_id' => $user->user_id]);
+        return response()->json([
+            'success' => true,
+            'message' => 'Login Successful',
+            'accessLevel' => $accessLevel,
+            'userRecordId' => $user->id,
+            'user_id' => $user->user_id,
+            'firstName' => $user->firstName
+        ]);
     }
 }
