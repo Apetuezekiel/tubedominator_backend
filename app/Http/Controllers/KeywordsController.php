@@ -228,6 +228,8 @@ class KeywordsController extends Controller
             $firstTwentyItems[$key]->keyword = $firstTwentyItems[$key]->string;
             $firstTwentyItems[$key]->monthlysearch = $firstTwentyItems[$key]->volume;
             $firstTwentyItems[$key]->difficulty = $competition;
+            $firstTwentyItems[$key]->countryCode = $countryCode;
+            $firstTwentyItems[$key]->languageCode = $languageCode;
         }
 
         $exact_keyword = [];
