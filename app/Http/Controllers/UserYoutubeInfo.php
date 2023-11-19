@@ -933,7 +933,7 @@ class UserYoutubeInfo extends Controller {
         $videoIdsString = implode(',', $videoIds);
     
         // Make a new API call using the extracted video IDs to get video details
-        $videoDetailsResponse = $client->request('GET', "https://www.googleapis.com/youtube/v3/videos?key=" . env('TUBEDOMINATOR_GOOGLE_APIKEY') . "&channelId=$request->channel_id&part=statistics,snippet,id,status,topicDetails,player,localizations,liveStreamingDetails&forContentOwner=true&maxResults=25&id=" . $videoIdsString, [
+        $videoDetailsResponse = $client->request('GET', "https://www.googleapis.com/youtube/v3/videos?key=" . env('TUBEDOMINATOR_GOOGLE_APIKEY') . "&channelId=$request->channel_ida&part=liveStreamingDetails,snippet,statistics,status,topicDetails,player&forContentOwner=true&maxResults=25&id=" . $videoIdsString, [
             'headers' => [
                 'Authorization' => $gToken,
             ],

@@ -34,6 +34,12 @@ Route::middleware(['api.key'])->group(function () {
     Route::post('addToSavedIdeas', [KeywordsController::class, 'addToSavedIdeas']);
     Route::get('getAllSavedIdeas', [KeywordsController::class, 'getAllSavedIdeas']);
     Route::delete('deleteSavedIdea/{id}', [KeywordsController::class, 'deleteSavedIdea']);
+
+    // Youtube Posts
+    Route::post('saveYoutubePost', [KeywordsController::class, 'saveYoutubePost']);
+    Route::get('getYoutubePosts', [KeywordsController::class, 'getYoutubePosts']);
+    Route::delete('deleteYoutubePost/{id}', [KeywordsController::class, 'deleteYoutubePost']);
+ 
     Route::post('fetchKeywordStat', [KeywordsController::class, 'fetchKeywordStat']); 
     Route::get('fetchKeywordStatGoogle', [KeywordsController::class, 'fetchKeywordStatGoogle']);
     
@@ -71,6 +77,8 @@ Route::middleware(['api.key'])->group(function () {
     Route::get('fetchMyYoutubeVideo', [UserYoutubeInfo::class, 'fetchMyYoutubeVideo']);
     Route::get('fetchMyYoutubeVideos', [UserYoutubeInfo::class, 'fetchMyYoutubeVideos']);
     Route::get('fetchSerpYoutubeVideos', [KeywordsController::class, 'fetchSerpYoutubeVideos']);
+    Route::get('fetchSerpYoutubeVideosOnly', [KeywordsController::class, 'fetchSerpYoutubeVideosOnly']);
+    Route::get('fetchSerpGoogleVideos', [KeywordsController::class, 'fetchSerpGoogleVideos']);
     Route::put('updateMyYoutubeVideos', [UserYoutubeInfo::class, 'updateMyYoutubeVideos']);
     // Route::get('getMySearchTerm', [UserYoutubeInfo::class, 'getMySearchTerm']);
     // EXPERIMENT

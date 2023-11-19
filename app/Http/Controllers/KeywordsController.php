@@ -14,6 +14,9 @@ use App\Models\userTemplate;
 use Firebase\JWT\JWT;
 use Firebase\JWT\Key;
 use Illuminate\Support\Facades\Storage;
+use Carbon\Carbon;
+use Carbon\CarbonInterval;
+use App\Models\OriginalPost;
 
 class KeywordsController extends Controller
 {
@@ -267,59 +270,405 @@ class KeywordsController extends Controller
             }
         }
 
+        
+        $videoDetails = $this->serpYoutubeData($request->keyword)->video_results;
+        $videoIds = $this->extractVideoIds($videoDetails);
+        $analyzedVideoDetails = $this->analyzeVideoDetails($gToken, $videoIds);
+        $channelUsernames = $this->extractChannels($videoDetails);
+        $channelDetails = $this->analyzeYoutubeChannels($gToken, $channelUsernames);
+        $slicedVideoDetails = array_slice($videoDetails, 0, 10);
+        $slicedVideoDetailsUpdated = $this->convertPublishedDates($slicedVideoDetails, $channelDetails, $analyzedVideoDetails);
+
+        return response()->json($slicedVideoDetailsUpdated);
+    }
+
+    public function fetchSerpYoutubeVideosOnly(Request $request){
+        $this->validate($request, [
+            'keyword' => 'required'
+        ]);
+    
+        $gToken = $request->header("gToken");
+    
+        try {
+            $user_id = $this->grabUserFromToken($request);
+        } catch (\Exception $e) {
+            if ($e->getMessage() === 'Expired token') {
+                return new Response(['status' => 'Failed', 'message' => 'Expired token'], 401);
+            } else {
+                return new Response(['status' => 'Failed', 'message' => 'Invalid token'], 401);
+            }
+        }
+
+        
         $videoDetails = $this->serpYoutubeData($request->keyword)->video_results;
         $slicedVideoDetails = array_slice($videoDetails, 0, 10);
 
-        foreach ($slicedVideoDetails['items'] as $index => $item) {
-            $channelId = isset($item['snippet']['channelId']) ? $item['snippet']['channelId'] : "";
-            $channelDetailsResponse = $client->request('GET', "https://www.googleapis.com/youtube/v3/channels?key=" . env('TUBEDOMINATOR_GOOGLE_APIKEY') . "&id=" . $channelId . "&part=statistics,snippet,contentDetails,topicDetails,brandingSettings,localizations", [
+        return response()->json($slicedVideoDetails);
+    }
+
+    public function fetchSerpGoogleVideos(Request $request){    
+        $this->validate($request, [
+            'keyword' => 'required',
+            'location' => 'required',
+            'country' => 'required',
+            'language' => 'required'
+        ]);
+    
+        $gToken = $request->header("gToken");
+    
+        try {
+            $user_id = $this->grabUserFromToken($request);
+        } catch (\Exception $e) {
+            if ($e->getMessage() === 'Expired token') {
+                return new Response(['status' => 'Failed', 'message' => 'Expired token'], 401);
+            } else {
+                return new Response(['status' => 'Failed', 'message' => 'Invalid token'], 401);
+            }
+        }
+    
+        $serpData = $this->serpGoogleVideosData($request->keyword, $request->location, $request->country, $request->language);
+    
+        // Check if 'inline_videos' is available in the dataset
+        if (isset($serpData->channel_results)) {
+            $videoDetails = $serpData->channel_results;
+            $slicedVideoDetails = array_slice($videoDetails, 0, 10);
+    
+            return response()->json(['success' => true, 'data' => $slicedVideoDetails], 200);
+        } else {
+            // 'inline_videos' not available, return false
+            return response()->json(['success' => false, 'message' => 'No Google videos for this keyword'], 404);
+        }
+    }
+
+    private function extractVideoIds($data){
+        $videoIds = [];
+
+        foreach ($data as $item) {
+            $videoId = substr($item->link, strrpos($item->link, '=') + 1);
+
+            if (!in_array($videoId, $videoIds)) {
+                $videoIds[] = $videoId;
+            }
+        }
+
+        return $videoIds;
+    }
+
+    private function extractChannels($data){
+        $channels = [];
+
+        // foreach ($data as $item) {
+        //     $channelName = substr($item->channel->link, strrpos($item->channel->link, '@') + 1);
+
+        //     if (!in_array($channelName, $channels)) {
+        //         $channels[] = $channelName;
+        //     }
+        // }
+
+        foreach ($data as $item) {
+            $channelName = $item->channel->name;
+            if (!in_array($channelName, $channels)) {
+                $channels[] = $channelName;
+            }
+        }
+
+        $firstFiveUsernames = array_slice($channels, 0, 2);
+
+        return $firstFiveUsernames;
+    }
+
+    private function fss($gToken, $channelUsernames){
+        $client = new Client();
+
+        $result = [];
+    
+        // Limit to the first 5 channel usernames
+        $firstFiveUsernames = array_slice($channelUsernames, 0, 5);
+    
+        $subscriberCounts = [];
+    
+        foreach ($firstFiveUsernames as $username) {
+            $response = $client->request('GET', "https://youtube.googleapis.com/youtube/v3/search?part=snippet,statistics,contentDetails&type&key=" . env('TUBEDOMINATOR_GOOGLE_APIKEY') . "q=" . "TechTalkwithATM", [
                 'headers' => [
                     'Authorization' => $gToken,
                 ],
             ]);
     
-            $channelDetailsData = json_decode($channelDetailsResponse->getBody(), true);
-            $subscriberCount = $channelDetailsData['items'][0]['statistics']['subscriberCount'] ?? null;
-            
-            // Construct the channel link
-            $channelLink = "https://www.youtube.com/channel/$channelId";
-            $videoId = isset($item["id"]) ? $item["id"] : "";
-
-            $videoLink = "https://www.youtube.com/watch?v=$videoId";
-
-
-            
-            $videoDetailItem = [
-                'publishedAt' => isset($item['snippet']['publishedAt']) ? $item['snippet']['publishedAt'] : "",
-                'title' => isset($item['snippet']['title']) ? $item['snippet']['title'] : "",
-                'description' => isset($item['snippet']['description']) ? $item['snippet']['description'] : "",
-                'thumbnails' => isset($item['snippet']['thumbnails']['standard']) ? $item['snippet']['thumbnails']['standard'] : "",
-                'categoryId' => isset($item['snippet']['categoryId']) ? $item['snippet']['categoryId'] : "",
-                'channelId' => $channelId,
-                'channelTitle' => isset($item['snippet']['channelTitle']) ? $item['snippet']['channelTitle'] : "",
-                'tags' => isset($item['snippet']['tags']) ? $item['snippet']['tags'] : "",
-                'liveBroadcastContent' => isset($item['snippet']['liveBroadcastContent']) ? $item['snippet']['liveBroadcastContent'] : "",
-                'player' => isset($item['player']['embedHtml']) ? $item['player']['embedHtml'] : "",
-                'videoId' => $videoId,
-                'madeForKids' => isset($item['status']['madeForKids']) ? $item['status']['madeForKids'] : "",
-                'privacyStatus' => isset($item['status']['privacyStatus']) ? $item['status']['privacyStatus'] : "",
-                'uploadStatus' => isset($item['status']['uploadStatus']) ? $item['status']['uploadStatus'] : "",
-                'publicStatsViewable' => isset($item['status']['publicStatsViewable']) ? $item['status']['publicStatsViewable'] : "",
-                'topicCategories' => isset($item['topicDetails']['topicCategories']) ? $item['topicDetails']['topicCategories'] : "",
-                'viewCount' => isset($item['statistics']['viewCount']) ? $item['statistics']['viewCount'] : "",
-                'commentCount' => isset($item['statistics']['commentCount']) ? $item['statistics']['commentCount'] : "",
-                'likeCount' => isset($item['statistics']['likeCount']) ? $item['statistics']['likeCount'] : "",
-                'favoriteCount' => isset($item[ 'statistics']['favoriteCount']) ? $item['statistics']['favoriteCount'] : "",
-                'channelLink' => $channelLink,
-                'videoLink' => $videoLink,
-                'subscriberCount' => $subscriberCount,
-            ];
-            $videoDetails[] = $videoDetailItem;
+            $channelData = json_decode($response->getBody(), true);
+            return $channelData;
+    
+            if (isset($channelData['items'][0]['statistics']['subscriberCount'])) {
+                $subscriberCount = $channelData['items'][0]['statistics']['subscriberCount'];
+    
+                $result[$username] = [
+                    'subscriber_count' => $subscriberCount,
+                ];
+    
+                $subscriberCounts[] = $subscriberCount;
+            } else {
+                // Handle the case where no channel data is retrieved for the username
+                $result[$username] = [
+                    'error' => 'No data available',
+                ];
+            }
         }
-        
-        return response()->json($slicedVideoDetails);
+    
+        // Calculate the requested metrics
+        $lowestSubscriberCount = min($subscriberCounts);
+        $highestSubscriberCount = max($subscriberCounts);
+        $averageSubscriberCount = count($subscriberCounts) > 0 ? array_sum($subscriberCounts) / count($subscriberCounts) : 0;
+        sort($subscriberCounts);
+        $count = count($subscriberCounts);
+        $middle = floor(($count - 1) / 2);
+    
+        $medianSubscriberCount = ($subscriberCounts[$middle] + $subscriberCounts[$middle + 1 - $count % 2]) / 2;
+    
+        // Determine category based on median
+        if ($medianSubscriberCount <= 500000) {
+            $category = 'Small';
+        } elseif ($medianSubscriberCount <= 1000000) {
+            $category = 'Medium';
+        } else {
+            $category = 'Large';
+        }
+    
+        return [
+            'lowest_subscriber_count' => $lowestSubscriberCount,
+            'highest_subscriber_count' => $highestSubscriberCount,
+            'average_subscriber_count' => $averageSubscriberCount,
+            'median_subscriber_count' => $medianSubscriberCount,
+            'subscriber_category' => $category,
+            'detailed_results' => $result, // Optionally return detailed results for each username
+        ];
     }
 
+    private function analyzeVideoDetails($gToken, $videoIds){
+        $client = new Client();
+        $videoIdsString = implode(',', $videoIds);
+    
+        $videoDetailsResponse = $client->request('GET', "https://www.googleapis.com/youtube/v3/videos?key=" . env('TUBEDOMINATOR_GOOGLE_APIKEY') . "&part=statistics,snippet,id,status,topicDetails,player,localizations,contentDetails&id=" . $videoIdsString, [
+            'headers' => [
+                'Authorization' => $gToken,
+            ],
+        ]);
+    
+        $videoDetailsData = json_decode($videoDetailsResponse->getBody(), true)["items"];
+        // $videoDetailsArray = json_decode(json_encode($videoDetails), true);
+    
+        // Merge videoDetailsData with $videoDetails based on videoId
+        // $mergedData = array_map(function ($apiData) use ($videoDetailsArray) {
+        //     $videoId = $apiData["id"] ?? null;
+    
+        //     if ($videoId === null) {
+        //         return $apiData;
+        //     }
+    
+        //     $existingData = array_filter($videoDetailsArray, function ($item) use ($videoId) {
+        //         return $item["id"] === $videoId;
+        //     });
+    
+        //     // If videoId exists in $videoDetails, merge the data
+        //     if (!empty($existingData)) {
+        //         $mergedData = array_merge($apiData, current($existingData));
+        //         return $mergedData;
+        //     }
+    
+        //     return $apiData;
+        // }, $videoDetailsData);
+    
+        return $videoDetailsData;
+    }
+    
+    private function analyzeYoutubeChannels($gToken, $channelUsernames){
+    
+        $client = new Client();
+    
+        $matchingChannelIds = [];
+
+        foreach ($channelUsernames as $channelUsername) {
+            $searchResponse = $client->request('GET', "https://youtube.googleapis.com/youtube/v3/search?part=snippet&maxResults=3&order=date&key=" . env('TUBEDOMINATOR_GOOGLE_APIKEY') . "&q=" . urlencode($channelUsername));
+        
+            $searchData = json_decode($searchResponse->getBody(), true);
+            // return $searchData;
+        
+            foreach ($searchData['items'] as $item) {
+                if (
+                    isset($item['snippet']['channelTitle']) &&
+                    isset($item['snippet']['channelId']) &&
+                    $item['snippet']['channelTitle'] === $channelUsername
+                ) {
+                    $matchingChannelIds[] = $item['snippet']['channelId'];
+                    break;
+                }
+            }
+        }
+
+        $matchingChannelIds = implode(',', $matchingChannelIds);
+
+
+        $channelDetailsResponse = $client->request('GET', "https://www.googleapis.com/youtube/v3/channels?key=" . env('TUBEDOMINATOR_GOOGLE_APIKEY') . "&id=" . $matchingChannelIds . "&part=statistics,snippet,contentDetails,topicDetails,brandingSettings,localizations", [
+            'headers' => [
+                'Authorization' => $gToken,
+            ],
+        ]);
+
+        $channelDetailsData = json_decode($channelDetailsResponse->getBody(), true);
+
+        foreach ($channelDetailsData['items'] as $index => $item) {
+    
+            if (isset($item['statistics']['subscriberCount'])) {
+                $subscriberCount = $item['statistics']['subscriberCount'];
+    
+                $result[] = [
+                    'channel_id' => isset($item["id"]) ? $item["id"] : "",
+                    'subscriber_count' => $subscriberCount,
+                ];
+    
+                $subscriberCounts[] = $subscriberCount;
+            } else {
+                // Handle the case where no subscriber count data is retrieved for the channel
+                $result[] = [
+                    'channel_id' => isset($item["id"]) ? $item["id"] : "",
+                    'error' => 'No subscriber count data available',
+                ];
+            }
+        }
+    
+        // Calculate the requested metrics
+        $lowestSubscriberCount = !empty($subscriberCounts) ? min($subscriberCounts) : 0;
+        $highestSubscriberCount = !empty($subscriberCounts) ? max($subscriberCounts) : 0;
+        $averageSubscriberCount = count($subscriberCounts) > 0 ? array_sum($subscriberCounts) / count($subscriberCounts) : 0;
+    
+        if (!empty($subscriberCounts)) {
+            sort($subscriberCounts);
+            $count = count($subscriberCounts);
+            $middle = floor(($count - 1) / 2);
+    
+            $medianSubscriberCount = ($subscriberCounts[$middle] + $subscriberCounts[$middle + 1 - $count % 2]) / 2;
+        } else {
+            $medianSubscriberCount = 0;
+        }
+    
+        // Determine category based on median
+        if ($medianSubscriberCount <= 500000) {
+            $category = 'Small';
+        } elseif ($medianSubscriberCount <= 1000000) {
+            $category = 'Medium';
+        } else {
+            $category = 'Large';
+        }
+    
+        return [
+            'lowest_subscriber_count' => $lowestSubscriberCount,
+            'highest_subscriber_count' => $highestSubscriberCount,
+            'average_subscriber_count' => $averageSubscriberCount,
+            'median_subscriber_count' => $medianSubscriberCount,
+            'subscriber_category' => $category,
+            'detailed_results' => $result,
+        ];
+    }
+
+    private function convertPublishedDates($data, $channelDetails, $analyzedVideoDetails){
+
+        $dateCategories = [
+            'low' => 0,
+            'medium' => 0,
+            'high' => 0,
+        ];
+
+        foreach ($data as &$item) {
+            if (isset($item->published_date)) {
+                $formattedDate = $this->convertToActualDate($item->published_date);
+
+                // Analyze the date and update the categories
+                $this->analyzeDateCategory($formattedDate, $dateCategories);
+
+                $item->published_date = $formattedDate;
+            }
+        }
+
+        // Determine the overall category based on the analyzed date categories
+        $overallCategory = $this->determineOverallCategory($dateCategories);
+
+        return [
+            'data' => $data,
+            'date_category' => $overallCategory,
+            'channel_details' => $channelDetails,
+            'analyzed_video_details' => $analyzedVideoDetails,
+        ];
+    }
+
+    private function analyzeDateCategory($formattedDate, &$dateCategories) {
+        try {
+            // Specify the format of the date string
+            $date = Carbon::createFromFormat('d/m/Y', $formattedDate);
+    
+            if ($date->diffInMonths() > 12) {
+                $dateCategories['low']++;
+            } elseif ($date->diffInMonths() > 6) {
+                $dateCategories['medium']++;
+            } else {
+                $dateCategories['high']++;
+            }
+        } catch (\Exception $e) {
+            // Handle the exception, log it, or throw a new exception
+            // depending on your error handling strategy.
+            // For now, let's just log the error message.
+            Log::error($e->getMessage());
+        }
+    }
+
+    private function determineOverallCategory($dateCategories){
+        if ($dateCategories['low'] > 5) {
+            return 'Low';
+        } elseif ($dateCategories['medium'] > 5) {
+            return 'Medium';
+        } else {
+            return 'High';
+        }
+    }
+
+    private function convertToActualDate($publishedDate) {
+        $publishedDate = strtolower($publishedDate);
+    
+        if (strpos($publishedDate, 'ago') !== false) {
+            // Handle "X hours/days/weeks ago" format
+            $intervalString = substr($publishedDate, 0, strpos($publishedDate, 'ago'));
+    
+            // Check if the interval string is not empty
+            if (!empty($intervalString)) {
+                // Attempt to convert the interval string to a Carbon interval
+                try {
+                    $interval = CarbonInterval::fromString($intervalString);
+                    $date = Carbon::now()->sub($interval);
+    
+                    // If the interval is less than a day and falls between two separate days
+                    if ($date->isYesterday()) {
+                        return $date->format('d/m/Y');
+                    } else {
+                        return $date->format('d/m/Y');
+                    }
+                } catch (\Exception $e) {
+                    // Handle the exception, log it, or return a default value
+                    return "Invalid date format";
+                }
+            }
+        } else {
+            // Handle "X months/years ago" format
+            $date = Carbon::now()->subMonths(1); // Default to 1 month ago for non-specific cases
+    
+            if (strpos($publishedDate, 'month') !== false) {
+                $months = intval($publishedDate);
+                $date = Carbon::now()->subMonths($months);
+            } elseif (strpos($publishedDate, 'year') !== false) {
+                $years = intval($publishedDate);
+                $date = Carbon::now()->subYears($years);
+            }
+    
+            return $date->format('d/m/Y');
+        }
+    }
+    
     private function calculateMedianVideoViews($videoResults) {
         $views = array_column($videoResults, 'views');
         sort($views);
@@ -379,6 +728,50 @@ class KeywordsController extends Controller
                 'api_key' => env('SERP_API_APIKEY'),
             ]
         ];
+        $client = new Client();
+
+        try {
+            $response = $client->request('GET', 'https://serpapi.com/search', $params);
+            
+            $statusCode = $response->getStatusCode();
+            $body = $response->getBody()->getContents();
+            $responseData = json_decode($body);
+    
+            return $responseData;
+    
+        
+        } catch (\GuzzleHttp\Exception\RequestException $e) {
+            // Handle request exceptions
+            echo "Error: " . $e->getMessage();
+        }
+
+        $statusCode = $response->getStatusCode();
+        $body = $response->getBody()->getContents();
+        $responseData = json_decode($body);
+
+        return $responseData;
+    }
+
+    private function serpGoogleVideosData($keyword, $location, $country, $language) {
+        $params = [
+            'query' => [
+                'q' => $keyword,
+                'location' => $location,
+                'hl' => $language,
+                'gl' => $country,
+                'api_key' => env('SERP_API_APIKEY'),
+            ]
+        ];
+        // $params = [
+        //     'query' => [
+        //         'q' => $keyword,
+        //         'location' => 'United States',
+        //         'hl' => 'en',
+        //         'gl' => 'us',
+        //         'api_key' => env('SERP_API_APIKEY'),
+        //     ]
+        // ];
+        
         $client = new Client();
 
         try {
@@ -514,7 +907,6 @@ class KeywordsController extends Controller
         }   
     
         $email = $request->email;
-        // return $user_id;
     
         try {
             $savedIdeas = SavedIdea::where('user_id', $user_id)
@@ -523,12 +915,12 @@ class KeywordsController extends Controller
             ->get();
 
             if ($savedIdeas->isEmpty()) {
-                return response()->json(['message' => 'No saved ideas found'], 200);
+                return response()->json(['success' => false, 'message' => 'No saved ideas found'], 200);
             }
     
             return response()->json(['success' => true, 'data' => $savedIdeas], 200);
         } catch (\Exception $e) {
-            return response()->json(['error' => 'Failed to retrieve saved ideas'], 500);
+            return response()->json(['success' => false, 'message' => 'Failed to retrieve saved ideas'], 500);
         }
     }
 
@@ -598,6 +990,177 @@ class KeywordsController extends Controller
         }
     }
     
+    // YOUTUBE POSTS
+    public function saveYoutubePost(Request $request) {
+        // Validation rules
+        $rules = [
+            'video_id' => 'required',
+            'video_title' => 'required',
+            'video_description' => 'nullable',
+            'video_tags' => 'nullable',
+            'video_thumbnail' => 'nullable',
+            'email' => 'required|email',
+        ];
+    
+        $this->validate($request, $rules);
+    
+        try {
+            $user_id = $this->grabUserFromToken($request);
+        } catch (\Exception $e) {
+            if ($e->getMessage() === 'Expired token') {
+                return new Response(['status' => 'Failed', 'message' => 'Expired token'], 401);
+            } else {
+                return new Response(['status' => 'Failed', 'message' => 'Invalid token'], 401);
+            }
+        }
+
+        $existingOriginalPost = OriginalPost::where("user_id", $user_id)->where("video_id", $request->video_id)->first();
+    
+        if ($existingOriginalPost) {
+            if ($existingOriginalPost->user_id !== $user_id || $existingOriginalPost->email !== $email) {
+                return new Response(['success' => true, 'message' => 'Unauthorized access'], 403);
+            }
+
+            $existingOriginalPost->video_title = $request->video_title;
+            $existingOriginalPost->video_description = $request->video_description;
+            $existingOriginalPost->video_tags = $request->video_tags;
+            $existingOriginalPost->video_thumbnail = $request->video_thumbnail;
+            $existingOriginalPost->save();
+
+            return new Response(['success' => true, 'message' => 'YouTube post updated'], 404);
+        }
+    
+        $originalPost = new OriginalPost();
+        $originalPost->user_id = $user_id;
+        $originalPost->video_id = $request->video_id;
+        $originalPost->video_title = $request->video_title;
+        $originalPost->video_description = $request->video_description;
+        $originalPost->video_tags = $request->video_tags;
+        $originalPost->video_thumbnail = $request->video_thumbnail;
+        $originalPost->save();
+    
+        return new Response(['success' => true, 'message' => 'Saved YouTube post'], 200);
+    }
+    
+    public function getYoutubePosts(Request $request) {
+        $this->validate($request, [
+            'email' => 'required|email',
+            'video_id' => 'required|email',
+        ]);
+    
+        try {
+            $user_id = $this->grabUserFromToken($request);
+        } catch (\Exception $e) {
+            if ($e->getMessage() === 'Expired token') {
+                return new Response(['status' => 'Failed', 'message' => 'Expired token'], 401);
+            } else {
+                return new Response(['status' => 'Failed', 'message' => 'Invalid token'], 401);
+            }
+        }
+    
+        $email = $request->email;
+        $video_id = $request->video_id;
+    
+        $youtubePosts = OriginalPost::where('user_id', $user_id)
+            ->where('email', $email)
+            ->where('video_id', $video_id)
+            ->orderBy('created_at', 'desc')
+            ->get();
+    
+        if ($youtubePosts->isEmpty()) {
+            return new Response(['success' => true, 'data' => 'No saved YouTube posts'], 200);
+        }
+    
+        $formattedYoutubePosts = $youtubePosts->map(function ($post) {
+            $post->created_at_formatted = date('M j, Y', strtotime($post->created_at));
+            return $post;
+        });
+    
+        return new Response(['success' => true, 'data' => $formattedYoutubePosts], 200);
+    }
+    
+    public function updateYoutubePost(Request $request) {
+        // Validation rules
+        $rules = [
+            'video_title' => 'required',
+            'video_description' => 'required',
+            'video_tags' => 'required',
+            'video_thumbnail' => 'required',
+            'post_id' => 'required',
+            'email' => 'required|email',
+        ];
+    
+        $this->validate($request, $rules);
+    
+        $email = $request->email;
+        $postId = $request->post_id;
+    
+        try {
+            $user_id = $this->grabUserFromToken($request);
+        } catch (\Exception $e) {
+            if ($e->getMessage() === 'Expired token') {
+                return new Response(['status' => 'Failed', 'message' => 'Expired token'], 401);
+            } else {
+                return new Response(['status' => 'Failed', 'message' => 'Invalid token'], 401);
+            }
+        }
+    
+        $originalPost = OriginalPost::find($postId);
+    
+        if (!$originalPost) {
+            return new Response(['success' => true, 'message' => 'YouTube post not found'], 404);
+        }
+    
+        if ($originalPost->user_id !== $user_id || $originalPost->email !== $email) {
+            return new Response(['success' => true, 'message' => 'Unauthorized access'], 403);
+        }
+    
+        $originalPost->video_title = $request->video_title;
+        $originalPost->video_description = $request->video_description;
+        $originalPost->video_tags = $request->video_tags;
+        $originalPost->video_thumbnail = $request->video_thumbnail;
+        $originalPost->save();
+    
+        return new Response(['success' => true, 'message' => 'Updated YouTube post'], 200);
+    }
+    
+    public function deleteYoutubePost(Request $request, $id) {
+        // Validate the request
+        $request->validate([
+            'email' => 'required|string',
+            // 'post_id' => 'required',
+        ]);
+    
+        // Get the user ID from the token
+        try {
+            $user_id = $this->grabUserFromToken($request);
+        } catch (\Exception $e) {
+            if ($e->getMessage() === 'Expired token') {
+                return response()->json(['status' => 'Failed', 'message' => 'Expired token'], 401);
+            } else {
+                return response()->json(['status' => 'Failed', 'message' => 'Invalid token'], 401);
+            }
+        }
+    
+        $email = $request->email;
+        $postId = $id;
+    
+        $originalPost = OriginalPost::find($postId);
+    
+        if (!$originalPost) {
+            return new Response(['status' => 'Failed', 'message' => 'YouTube post not found'], 404);
+        }
+    
+        if ($originalPost->user_id !== $user_id || $originalPost->email !== $email) {
+            return new Response(['status' => 'Failed', 'message' => 'Unauthorized access'], 403);
+        }
+    
+        $originalPost->delete();
+    
+        return new Response(['success' => true, 'message' => 'YouTube post deleted successfully'], 200);
+    }
+    
+
     // USER TEMPLATES
     public function saveUserTemplate(Request $request) {
         // Validation rules
