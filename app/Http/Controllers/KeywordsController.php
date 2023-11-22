@@ -253,6 +253,123 @@ class KeywordsController extends Controller
         ]);
     }
 
+    public function generateYoutubePost(Request $request){
+        $this->validate($request, [
+            'idea' => 'required|string',
+        ]);
+    
+        try {
+            $user_id = $this->grabUserFromToken($request);
+        } catch (\Exception $e) {
+            // Handle token validation exception
+            return new Response(['status' => 'Failed', 'message' => $e->getMessage()], 401);
+        }
+    
+        $idea = $request->idea;
+        $client = new Client();
+    
+        $options = [
+            'headers' => [
+                'Content-Type' => 'application/json',
+                'Authorization' => 'Bearer ' . env('OPENAI_API_KEY'),
+            ],
+            'json' => [
+                'model' => 'gpt-3.5-turbo-instruct',
+                'prompt' => "Generate Youtube post for me for the idea '$idea' in the following order, Title, Keywords, Tags, Hashtags only",
+                'max_tokens' => 4000,
+            ],
+        ];
+    
+        try {
+            $response = $client->post('https://api.openai.com/v1/completions', $options);
+            $statusCode = $response->getStatusCode();
+            $body = $response->getBody()->getContents();
+            $responseData = json_decode($body, true);
+
+            // $responseData = [
+            //     'choices' => [
+            //         [
+            //             'text' => "\n\nTitle: \"Email Marketing for Beginners: Tips to Boost Your Business\"\n\nKeywords: email marketing, beginners, boost, business, marketing strategy\n\nTags: email marketing tips, email campaigns, marketing for beginners, email list, email marketing strategy\n\nHashtags: #emailmarketing #beginnersguide #emailtips #marketingstrategy #boostyourbusiness",
+            //         ]
+            //     ],
+            // ];
+
+            $youtubePost = new \stdClass();
+
+            if (isset($responseData['choices'][0]['text'])) {
+                $generatedText = $responseData['choices'][0]['text'];
+    
+                preg_match('/Title: "(.*?)"/s', $text, $titleMatch);
+
+                if (!$titleMatch[1]) {
+                    preg_match('/Title: (.+?)\n/', $text, $titleMatch);
+                }
+
+                $title = isset($titleMatch[1]) ? $titleMatch[1] : null;
+                $youtubePost->title = $titleMatch[1] ?? null;
+    
+                preg_match('/Keywords: (.+?)\n/', $generatedText, $keywordsMatch);
+                $youtubePost->keywords = isset($keywordsMatch[1]) ? explode(', ', $keywordsMatch[1]): [];
+    
+                preg_match('/Tags: (.+?)\n/', $generatedText, $tagsMatch);
+                $youtubePost->tags = isset($tagsMatch[1]) ? explode(', ', $tagsMatch[1]) : [];
+    
+                preg_match('/Hashtags: (.+?)(\n|$)/', $generatedText, $hashtagsMatch);
+                $youtubePost->hashtags = isset($hashtagsMatch[1]) ? explode(' ', $hashtagsMatch[1]) : [];
+                
+                // Make another API call to generate a description for the title
+                $descriptionPrompt = "Generate a description for the title: '$youtubePost->title'";
+                $options['json']['prompt'] = $descriptionPrompt;
+
+                $descriptionResponse = $client->post('https://api.openai.com/v1/completions', $options);
+                $descriptionBody = $descriptionResponse->getBody()->getContents();
+                $descriptionData = json_decode($descriptionBody, true);
+
+                if (isset($descriptionData['choices'][0]['text'])) {
+                    $youtubePost->description = $descriptionData['choices'][0]['text'];
+                } else {
+                    // Set a default description if no match is found
+                    $youtubePost->description = null;
+                }
+            } else {
+                // Set default values if no match is found
+                $youtubePost->title = null;
+                $youtubePost->keywords = [];
+                $youtubePost->tags = [];
+                $youtubePost->hashtags = [];
+            }
+    
+            return new Response([
+                'success' => true,
+                'data' => $youtubePost,
+                'text' => $generatedText,
+                // 'description' => $generatedText
+            ]);
+        } catch (RequestException $e) {
+            // Handle Guzzle HTTP request exception
+            $statusCode = $e->getResponse() ? $e->getResponse()->getStatusCode() : 500;
+            return new Response([
+                'success' => false,
+                'error' => $e->getMessage(),
+            ], $statusCode);
+        } catch (ConnectException $e) {
+            // Handle Guzzle connection exception
+            return new Response([
+                'success' => false,
+                'error' => 'Failed to connect to the OpenAI API',
+            ], 500);
+        } catch (\Exception $e) {
+            // Handle other exceptions
+            return new Response([
+                'success' => false,
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+    
+    
+    
+
     public function fetchSerpYoutubeVideos(Request $request){
         $this->validate($request, [
             'keyword' => 'required'
@@ -908,7 +1025,7 @@ class KeywordsController extends Controller
     
         $email = $request->email;
     
-        try {
+        // try {    
             $savedIdeas = SavedIdea::where('user_id', $user_id)
             ->where('email', $email)
             ->orderBy('updated_at', 'desc')
@@ -919,9 +1036,9 @@ class KeywordsController extends Controller
             }
     
             return response()->json(['success' => true, 'data' => $savedIdeas], 200);
-        } catch (\Exception $e) {
-            return response()->json(['success' => false, 'message' => 'Failed to retrieve saved ideas'], 500);
-        }
+        // } catch (\Exception $e) {
+        //     return response()->json(['success' => false, 'message' => 'Failed to retrieve saved ideas'], 500);
+        // }
     }
 
     public function tryy (Request $request) {

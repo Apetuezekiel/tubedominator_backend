@@ -36,6 +36,7 @@ Route::middleware(['api.key'])->group(function () {
     Route::delete('deleteSavedIdea/{id}', [KeywordsController::class, 'deleteSavedIdea']);
 
     // Youtube Posts
+    Route::post('generateYoutubePost', [KeywordsController::class, 'generateYoutubePost']);
     Route::post('saveYoutubePost', [KeywordsController::class, 'saveYoutubePost']);
     Route::get('getYoutubePosts', [KeywordsController::class, 'getYoutubePosts']);
     Route::delete('deleteYoutubePost/{id}', [KeywordsController::class, 'deleteYoutubePost']);
