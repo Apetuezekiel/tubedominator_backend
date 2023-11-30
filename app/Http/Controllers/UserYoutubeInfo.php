@@ -1005,7 +1005,12 @@ class UserYoutubeInfo extends Controller {
             $videoDetailItem['playlists'] = $playlists;
         }
         
-        return response()->json($videoDetails);
+        // return response()->json($videoDetails);
+        return new Response([
+            'success' => true,
+            'data' => $videoDetails,
+        ]);
+        
     }
     
     public function fetchUserYoutubeInfo(Request $request){

@@ -253,6 +253,69 @@ class KeywordsController extends Controller
         ]);
     }
 
+    public function generateThumbnail(Request $request){
+        $this->validate($request, [
+            'prompt' => 'required|string',
+        ]);
+    
+        try {
+            $user_id = $this->grabUserFromToken($request);
+        } catch (\Exception $e) {
+            if ($e->getMessage() === 'Expired token') {
+                return new Response(['status' => 'Failed', 'message' => 'Expired token'], 401);
+            } else {
+                return new Response(['status' => 'Failed', 'message' => 'Invalid token'], 401);
+            }
+        }
+    
+        $prompt = $request->prompt;
+        $client = new Client();
+    
+        $options = [
+            'headers' => [
+                'Content-Type' => 'application/json',
+                'Authorization' => 'Bearer ' . env('OPENAI_API_KEY'),
+            ],
+            'json' => [
+                'model' => 'dall-e-3',
+                'prompt' => $prompt,
+                'n' => 1,
+                'size' => "1024x1024",
+            ],              
+        ];
+    
+        try {
+            $response = $client->post('https://api.openai.com/v1/images/generations', $options);
+            $statusCode = $response->getStatusCode();
+            $body = $response->getBody()->getContents();
+            $responseData = json_decode($body, true);
+    
+            return new Response([
+                'success' => true,
+                'data' => $responseData,
+            ]);
+        } catch (RequestException $e) {
+            // Handle Guzzle HTTP request exception
+            $statusCode = $e->getResponse() ? $e->getResponse()->getStatusCode() : 500;
+            return new Response([
+                'success' => false,
+                'error' => $e->getMessage(),
+            ], $statusCode);
+        } catch (ConnectException $e) {
+            // Handle Guzzle connection exception
+            return new Response([
+                'success' => false,
+                'error' => 'Failed to connect to the OpenAI API',
+            ], 500);
+        } catch (\Exception $e) {
+            // Handle other exceptions
+            return new Response([
+                'success' => false,
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
     public function generateYoutubePost(Request $request){
         $this->validate($request, [
             'idea' => 'required|string',
@@ -261,8 +324,11 @@ class KeywordsController extends Controller
         try {
             $user_id = $this->grabUserFromToken($request);
         } catch (\Exception $e) {
-            // Handle token validation exception
-            return new Response(['status' => 'Failed', 'message' => $e->getMessage()], 401);
+            if ($e->getMessage() === 'Expired token') {
+                return new Response(['status' => 'Failed', 'message' => 'Expired token'], 401);
+            } else {
+                return new Response(['status' => 'Failed', 'message' => 'Invalid token'], 401);
+            }
         }
     
         $idea = $request->idea;
@@ -277,7 +343,7 @@ class KeywordsController extends Controller
                 'model' => 'gpt-3.5-turbo-instruct',
                 'prompt' => "Generate Youtube post for me for the idea '$idea' in the following order, Title, Keywords, Tags, Hashtags only",
                 'max_tokens' => 4000,
-            ],
+            ],              
         ];
     
         try {
@@ -299,15 +365,15 @@ class KeywordsController extends Controller
             if (isset($responseData['choices'][0]['text'])) {
                 $generatedText = $responseData['choices'][0]['text'];
     
-                preg_match('/Title: "(.*?)"/s', $text, $titleMatch);
-
+                preg_match('/Title: "(.*?)"/s', $generatedText, $titleMatch);
+                
                 if (!$titleMatch[1]) {
-                    preg_match('/Title: (.+?)\n/', $text, $titleMatch);
+                    preg_match('/Title: (.+?)\n/', $generatedText, $titleMatch);
                 }
-
+                
                 $title = isset($titleMatch[1]) ? $titleMatch[1] : null;
                 $youtubePost->title = $titleMatch[1] ?? null;
-    
+
                 preg_match('/Keywords: (.+?)\n/', $generatedText, $keywordsMatch);
                 $youtubePost->keywords = isset($keywordsMatch[1]) ? explode(', ', $keywordsMatch[1]): [];
     
@@ -328,12 +394,34 @@ class KeywordsController extends Controller
                 if (isset($descriptionData['choices'][0]['text'])) {
                     $youtubePost->description = $descriptionData['choices'][0]['text'];
                 } else {
-                    // Set a default description if no match is found
                     $youtubePost->description = null;
                 }
+
+                // Generate Script
+                $scriptPrompt = "Create an engaging audio script on the topic: '$idea'. Provide key points, interesting facts, and insights to captivate the audience. Avoid specific cues like opening music, host prompts, and background music instructions. Each header and paragraph(unlimited text without linebreaks) should be separated by \n\n";
+
+                $options['json']['prompt'] = $scriptPrompt;
+
+                $scriptResponse = $client->post('https://api.openai.com/v1/completions', $options);
+                $scriptBody = $scriptResponse->getBody()->getContents();
+                $scriptData = json_decode($scriptBody, true);
+
+                $youtubePost->script = isset($scriptData['choices'][0]['text']) ? $scriptData['choices'][0]['text'] : null;
+
+                // Generate Thumbnail
+                $thumbnailPrompt = "Generate Ai Prompt to generate a suitable thumbnail for the topic: '$idea'";
+
+                $options['json']['prompt'] = $thumbnailPrompt;
+
+                $thumbnailResponse = $client->post('https://api.openai.com/v1/completions', $options);
+                $thumbnailBody = $thumbnailResponse->getBody()->getContents();
+                $thumbnailData = json_decode($thumbnailBody, true);
+
+                $youtubePost->thumbnail = isset($thumbnailData['choices'][0]['text']) ? $thumbnailData['choices'][0]['text'] : null;
+
             } else {
-                // Set default values if no match is found
                 $youtubePost->title = null;
+                $youtubePost->thumbnail = null;
                 $youtubePost->keywords = [];
                 $youtubePost->tags = [];
                 $youtubePost->hashtags = [];
@@ -367,9 +455,6 @@ class KeywordsController extends Controller
         }
     }
     
-    
-    
-
     public function fetchSerpYoutubeVideos(Request $request){
         $this->validate($request, [
             'keyword' => 'required'
@@ -455,6 +540,19 @@ class KeywordsController extends Controller
             // 'inline_videos' not available, return false
             return response()->json(['success' => false, 'message' => 'No Google videos for this keyword'], 404);
         }
+    }
+
+    private function formatScript($scriptText) {
+        // Split the text into sentences
+        $sentences = preg_split('/(?<!\w\.\w.)(?<![A-Z][a-z]\.)(?<=\.|\?)\s/', $scriptText);
+    
+        // Group sentences into paragraphs with a max of 3-5 sentences per paragraph
+        $paragraphs = array_chunk($sentences, rand(3, 5));
+    
+        // Join paragraphs with new lines
+        $formattedScript = implode("\n\n", array_map('implode', $paragraphs));
+    
+        return $formattedScript;
     }
 
     private function extractVideoIds($data){
@@ -965,6 +1063,22 @@ class KeywordsController extends Controller
             'potential_views' => 'required',
             'email' => 'required',
             'trend' => 'required',
+            'cpc' => 'required',
+            'cmp' => 'required',
+            'languageCode' => 'required',
+            'countryCode' => 'required',
+            'm1' => 'required',
+            'm2' => 'required',
+            'm3' => 'required',
+            'm4' => 'required',
+            'm5' => 'required',
+            'm6' => 'required',
+            'm7' => 'required',
+            'm8' => 'required',
+            'm9' => 'required',
+            'm10' => 'required',
+            'm11' => 'required',
+            'm12' => 'required',
             'category' => 'required',
         ]);
 
@@ -994,6 +1108,22 @@ class KeywordsController extends Controller
             $savedIdea->potential_views = $request->potential_views;
             $savedIdea->trend = $request->trend;
             $savedIdea->category = $request->category;
+            $savedIdea->cpc = $request->cpc;
+            $savedIdea->cmp = $request->cmp;
+            $savedIdea->languageCode = $request->languageCode;
+            $savedIdea->countryCode = $request->countryCode;
+            $savedIdea->m1 = $request->m1;
+            $savedIdea->m2 = $request->m2;
+            $savedIdea->m3 = $request->m3;
+            $savedIdea->m4 = $request->m4;
+            $savedIdea->m5 = $request->m5;
+            $savedIdea->m6 = $request->m6;
+            $savedIdea->m7 = $request->m7;
+            $savedIdea->m8 = $request->m8;
+            $savedIdea->m9 = $request->m9;
+            $savedIdea->m10 = $request->m10;
+            $savedIdea->m11 = $request->m11;
+            $savedIdea->m12 = $request->m12;
             $savedIdea->save();
             // $fetchSavedIdea->search_volume = $request->search_volume;
         } else {
@@ -1001,12 +1131,66 @@ class KeywordsController extends Controller
             $fetchSavedIdea->potential_views = $request->potential_views;
             $fetchSavedIdea->trend = $request->trend;
             $fetchSavedIdea->category = $request->category;
+            $fetchSavedIdea->cpc = $request->cpc;
+            $fetchSavedIdea->cmp = $request->cmp;
+            $fetchSavedIdea->languageCode = $request->languageCode;
+            $fetchSavedIdea->countryCode = $request->countryCode;
+            $fetchSavedIdea->m1 = $request->m1;
+            $fetchSavedIdea->m2 = $request->m2;
+            $fetchSavedIdea->m3 = $request->m3;
+            $fetchSavedIdea->m4 = $request->m4;
+            $fetchSavedIdea->m5 = $request->m5;
+            $fetchSavedIdea->m6 = $request->m6;
+            $fetchSavedIdea->m7 = $request->m7;
+            $fetchSavedIdea->m8 = $request->m8;
+            $fetchSavedIdea->m9 = $request->m9;
+            $fetchSavedIdea->m10 = $request->m10;
+            $fetchSavedIdea->m11 = $request->m11;
+            $fetchSavedIdea->m12 = $request->m12;
             $fetchSavedIdea->save();
         }
 
 
         return new Response(['success' => true, 'message' => 'Idea Saved'], 200);
     }
+
+    public function getCategorySavedIdeas(Request $request) {
+        $this->validate($request, [
+            'email' => 'required',
+            'category' => 'required',
+        ]);
+    
+        try {
+            $user_id = $this->grabUserFromToken($request);
+        } catch (\Exception $e) {
+            if ($e->getMessage() === 'Expired token') {
+                return new Response(['status' => 'Failed', 'message' => 'Expired token'], 401);
+            } else {
+                return new Response(['status' => 'Failed', 'message' => 'Invalid token'], 401);
+            }
+        }   
+    
+        $email = $request->email;
+        $category = $request->category;
+    
+        $savedIdeasQuery = SavedIdea::where('user_id', $user_id)
+            ->where('email', $email)
+            ->orderBy('updated_at', 'desc');
+    
+        // Add category filter only if it's not "all"
+        if ($category !== 'all') {
+            $savedIdeasQuery->where('category', $category);
+        }
+    
+        $savedIdeas = $savedIdeasQuery->get();
+    
+        if ($savedIdeas->isEmpty()) {
+            return new Response(['success' => false, 'message' => 'No saved ideas found for this category'], 200);
+        }
+    
+        return new Response(['success' => true, 'data' => $savedIdeas], 200);
+    }
+    
 
     public function getAllSavedIdeas(Request $request) {
         $this->validate($request, [
@@ -1117,6 +1301,9 @@ class KeywordsController extends Controller
             'video_tags' => 'nullable',
             'video_thumbnail' => 'nullable',
             'email' => 'required|email',
+            'likeCount' => 'required|required',
+            'commentCount' => 'required|required',
+            'viewCount' => 'required|required',
         ];
     
         $this->validate($request, $rules);
@@ -1132,9 +1319,11 @@ class KeywordsController extends Controller
         }
 
         $existingOriginalPost = OriginalPost::where("user_id", $user_id)->where("video_id", $request->video_id)->first();
+
+        $email = $request->email;
     
         if ($existingOriginalPost) {
-            if ($existingOriginalPost->user_id !== $user_id || $existingOriginalPost->email !== $email) {
+            if ($existingOriginalPost->user_id !== $user_id) {
                 return new Response(['success' => true, 'message' => 'Unauthorized access'], 403);
             }
 
@@ -1142,6 +1331,9 @@ class KeywordsController extends Controller
             $existingOriginalPost->video_description = $request->video_description;
             $existingOriginalPost->video_tags = $request->video_tags;
             $existingOriginalPost->video_thumbnail = $request->video_thumbnail;
+            $existingOriginalPost->likeCount = $request->likeCount;
+            $existingOriginalPost->commentCount = $request->commentCount;
+            $existingOriginalPost->viewCount = $request->viewCount;
             $existingOriginalPost->save();
 
             return new Response(['success' => true, 'message' => 'YouTube post updated'], 404);
@@ -1154,6 +1346,9 @@ class KeywordsController extends Controller
         $originalPost->video_description = $request->video_description;
         $originalPost->video_tags = $request->video_tags;
         $originalPost->video_thumbnail = $request->video_thumbnail;
+        $originalPost->likeCount = $request->likeCount;
+        $originalPost->commentCount = $request->commentCount;
+        $originalPost->viewCount = $request->viewCount;
         $originalPost->save();
     
         return new Response(['success' => true, 'message' => 'Saved YouTube post'], 200);
@@ -1162,7 +1357,43 @@ class KeywordsController extends Controller
     public function getYoutubePosts(Request $request) {
         $this->validate($request, [
             'email' => 'required|email',
-            'video_id' => 'required|email',
+            'video_id' => 'required|string',
+        ]);
+    
+        try {
+            $user_id = $this->grabUserFromToken($request);
+        } catch (\Exception $e) {
+            if ($e->getMessage() === 'Expired token') {
+                return new Response(['status' => 'Failed', 'message' => 'Expired token'], 401);
+            } else { 
+                return new Response(['status' => 'Failed', 'message' => 'Invalid token'], 401);
+            }
+        }
+    
+        $email = $request->email;
+        $video_id = $request->video_id;
+    
+        $youtubePosts = OriginalPost::where('user_id', $user_id)
+            // ->where('email', $email)
+            ->where('video_id', $video_id)
+            ->orderBy('created_at', 'desc')
+            ->get();
+    
+        if ($youtubePosts->isEmpty()) {
+            return new Response(['success' => true, 'data' => 'No saved YouTube posts'], 200);
+        }
+    
+        $formattedYoutubePosts = $youtubePosts->map(function ($post) {
+            $post->created_at_formatted = date('M j, Y', strtotime($post->created_at));
+            return $post;
+        });
+    
+        return new Response(['success' => true, 'data' => $formattedYoutubePosts], 200);
+    }
+
+    public function getAllYoutubePosts(Request $request) {
+        $this->validate($request, [
+            'email' => 'required|email',
         ]);
     
         try {
@@ -1176,11 +1407,9 @@ class KeywordsController extends Controller
         }
     
         $email = $request->email;
-        $video_id = $request->video_id;
     
         $youtubePosts = OriginalPost::where('user_id', $user_id)
-            ->where('email', $email)
-            ->where('video_id', $video_id)
+            // ->where('email', $email)
             ->orderBy('created_at', 'desc')
             ->get();
     
@@ -1654,8 +1883,7 @@ class KeywordsController extends Controller
         }
     }
 
-    public function upload(Request $request)
-    {
+    public function upload(Request $request){
         if ($request->hasFile('file')) {
             $uploadedFile = $request->file('file');
 
@@ -1956,6 +2184,4 @@ class KeywordsController extends Controller
         // Convert the array to JSON and return it
         return response()->json($data);
     }
-    
-    
 }

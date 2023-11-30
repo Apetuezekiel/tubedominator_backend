@@ -33,12 +33,15 @@ Route::middleware(['api.key'])->group(function () {
 
     Route::post('addToSavedIdeas', [KeywordsController::class, 'addToSavedIdeas']);
     Route::get('getAllSavedIdeas', [KeywordsController::class, 'getAllSavedIdeas']);
+    Route::get('getCategorySavedIdeas', [KeywordsController::class, 'getCategorySavedIdeas']);
     Route::delete('deleteSavedIdea/{id}', [KeywordsController::class, 'deleteSavedIdea']);
 
     // Youtube Posts
+    Route::post('generateThumbnail', [KeywordsController::class, 'generateThumbnail']);
     Route::post('generateYoutubePost', [KeywordsController::class, 'generateYoutubePost']);
     Route::post('saveYoutubePost', [KeywordsController::class, 'saveYoutubePost']);
     Route::get('getYoutubePosts', [KeywordsController::class, 'getYoutubePosts']);
+    Route::get('getAllYoutubePosts', [KeywordsController::class, 'getAllYoutubePosts']);
     Route::delete('deleteYoutubePost/{id}', [KeywordsController::class, 'deleteYoutubePost']);
  
     Route::post('fetchKeywordStat', [KeywordsController::class, 'fetchKeywordStat']); 
