@@ -10,13 +10,13 @@ use App\Models\SavedIdea;
 use App\Models\userSavedKeyword;
 use App\Models\draftPost;
 use App\Models\bookmarkedSearchTerm;
-use App\Models\userTemplate;
+use App\Models\UserTemplate;
+use App\Models\OriginalPost;
 use Firebase\JWT\JWT;
 use Firebase\JWT\Key;
 use Illuminate\Support\Facades\Storage;
 use Carbon\Carbon;
 use Carbon\CarbonInterval;
-use App\Models\OriginalPost;
 
 class KeywordsController extends Controller
 {
@@ -316,6 +316,367 @@ class KeywordsController extends Controller
         }
     }
 
+    public function getAllVideoTemplates(Request $request){    
+        try {
+            $user_id = $this->grabUserFromToken($request);
+        } catch (\Exception $e) {
+            if ($e->getMessage() === 'Expired token') {
+                return new Response(['status' => 'Failed', 'message' => 'Expired token'], 401);
+            } else {
+                return new Response(['status' => 'Failed', 'message' => 'Invalid token'], 401);
+            }
+        }
+    
+        $prompt = $request->prompt;
+        $client = new Client();
+    
+        $options = [
+            'headers' => [
+                'Content-Type' => 'application/json',
+                'Authorization' => 'Bearer ' . env('ELAI_API_KEY'),
+            ],             
+        ];
+    
+        try {
+            $response = $client->get('https://apis.elai.io/api/v1/videos?type=template', $options);
+            $statusCode = $response->getStatusCode();
+            $body = $response->getBody()->getContents();
+            $responseData = json_decode($body, true);
+
+
+            return new Response([
+                'success' => true,
+                'data' => $responseData,
+            ]);
+        } catch (RequestException $e) {
+            $statusCode = $e->getResponse() ? $e->getResponse()->getStatusCode() : 500;
+            return new Response([
+                'success' => false,
+                'error' => $e->getMessage(),
+            ], $statusCode);
+        } catch (ConnectException $e) {
+            return new Response([
+                'success' => false,
+                'error' => 'Failed to connect to the ELAI API',
+            ], 500);
+        } catch (\Exception $e) {
+            return new Response([
+                'success' => false,
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    public function generateVideoFromUrl(Request $request){
+        $this->validate($request, [
+            'prompt' => 'required|string',
+            'templateId' => 'required|string',
+        ]);
+    
+        try {
+            $user_id = $this->grabUserFromToken($request);
+        } catch (\Exception $e) {
+            if ($e->getMessage() === 'Expired token') {
+                return new Response(['status' => 'Failed', 'message' => 'Expired token'], 401);
+            } else {
+                return new Response(['status' => 'Failed', 'message' => 'Invalid token'], 401);
+            }
+        }
+    
+        $prompt = $request->prompt;
+        $templateId = $request->templateId;
+        $client = new Client();
+    
+        $options = [
+            'headers' => [
+                'Content-Type' => 'application/json',
+                'Authorization' => 'Bearer ' . env('ELAI_API_KEY'),
+            ],
+            'json' => [
+                'templateId' => $templateId,
+                'folderId' => env("FOLDER_ID"),
+                'from' => $prompt,
+            ],              
+        ];
+    
+        // try {
+            $response = $client->post('https://apis.elai.io/api/v1/story/html', $options);
+            $statusCode = $response->getStatusCode();
+            $body = $response->getBody()->getContents();
+            $responseData = json_decode($body, true);
+
+
+            return new Response([
+                'success' => true,
+                'data' => $responseData,
+            ]);
+        // } catch (RequestException $e) {
+        //     $statusCode = $e->getResponse() ? $e->getResponse()->getStatusCode() : 500;
+        //     return new Response([
+        //         'success' => false,
+        //         'error' => $e->getMessage(),
+        //     ], $statusCode);
+        // } catch (\Exception $e) {
+        //     return new Response([
+        //         'success' => false,
+        //         'error' => $e->getMessage(),
+        //     ], 500);
+        // }
+    }
+    
+    public function generateVideoFromText(Request $request){
+        $this->validate($request, [
+            'prompt' => 'required|string',
+            'templateId' => 'required|string',
+        ]);
+    
+        try {
+            $user_id = $this->grabUserFromToken($request);
+        } catch (\Exception $e) {
+            if ($e->getMessage() === 'Expired token') {
+                return new Response(['status' => 'Failed', 'message' => 'Expired token'], 401);
+            } else {
+                return new Response(['status' => 'Failed', 'message' => 'Invalid token'], 401);
+            }
+        }
+    
+        $prompt = $request->prompt;
+        $templateId = "642e88ff081e30cae04420a4";
+
+        // return [$prompt, $templateId]
+        $client = new Client();
+    
+        // $options = [
+        //     'headers' => [
+        //         'Content-Type' => 'application/json',
+        //         'Authorization' => 'Bearer ' . env('ELAI_API_KEY'),
+        //     ],
+        //     'json' => [
+        //         'templateId' => $templateId,
+        //         'folderId' => env("FOLDER_ID"),
+        //         'from' => $prompt,
+        //     ],              
+        // ];
+    
+        // try {
+            // $response = $client->post('https://apis.elai.io/api/v1/story/text', $options);
+
+            // $body = [$prompt];
+            
+            $response = $client->request('POST', "https://apis.elai.io/api/v1/story/text", [
+                'body' => '{"templateId":"' . $templateId . '", "from":' . json_encode($prompt) . ', "folderId":"' . env("FOLDER_ID") . '"}',
+                'headers' => [
+                    'Authorization' => 'Bearer ' . env("ELAI_API_KEY"),
+                    'accept' => 'application/json',
+                    'content-type' => 'application/json'
+                ],
+            ]);
+            
+
+            $statusCode = $response->getStatusCode();
+            $body = $response->getBody()->getContents();
+            $responseData = json_decode($body, true);
+
+
+
+
+            return new Response([
+                'success' => true,
+                'data' => $responseData,
+            ]);
+        // } catch (RequestException $e) {
+        //     $statusCode = $e->getResponse() ? $e->getResponse()->getStatusCode() : 500;
+        //     return new Response([
+        //         'success' => false,
+        //         'error' => $e->getMessage(),
+        //     ], $statusCode);
+        // } catch (\Exception $e) {
+        //     return new Response([
+        //         'success' => false,
+        //         'error' => $e->getMessage(),
+        //     ], 500);
+        // }
+    }
+
+    public function createVideo($body)
+    {
+        $client = new \GuzzleHttp\Client();
+        $url = 'https://apis.elai.io/api/v1/story/html';
+        $response = $client->request('POST', $url, [
+            'body' => '{"templateId":"' . $this->video_template_id . '", "from":' . json_encode($body) . '}',
+            'headers' => [
+                'Authorization' => 'Bearer ' . env("ELAI_KEY"),
+                'accept' => 'application/json',
+                'content-type' => 'application/json'
+            ],
+        ]);
+        // Get the response body as a string
+        $data =  json_decode($response->getBody()->getContents());
+        return $data;
+    }
+
+    public function generateSlides(Request $request){
+        $this->validate($request, [
+            'video_id' => 'required|string',
+        ]);
+    
+        try {
+            $user_id = $this->grabUserFromToken($request);
+        } catch (\Exception $e) {
+            if ($e->getMessage() === 'Expired token') {
+                return new Response(['status' => 'Failed', 'message' => 'Expired token'], 401);
+            } else {
+                return new Response(['status' => 'Failed', 'message' => 'Invalid token'], 401);
+            }
+        }
+    
+        $video_id = $request->video_id;
+        $client = new Client();
+    
+        $options = [
+            'headers' => [
+                'Content-Type' => 'application/json',
+                'Authorization' => 'Bearer ' . env('ELAI_API_KEY'),
+            ],            
+        ];
+    
+        // try {
+            $response = $client->post("https://apis.elai.io/api/v1/story/generate-slides/$video_id", $options);
+            $statusCode = $response->getStatusCode();
+            $body = $response->getBody()->getContents();
+            $responseData = json_decode($body, true);
+
+
+            return new Response([
+                'success' => true,
+                'data' => $responseData,
+            ]);
+        // } catch (RequestException $e) {
+        //     $statusCode = $e->getResponse() ? $e->getResponse()->getStatusCode() : 500;
+        //     return new Response([
+        //         'success' => false,
+        //         'error' => $e->getMessage(),
+        //     ], $statusCode);
+        // } catch (\Exception $e) {
+        //     return new Response([
+        //         'success' => false,
+        //         'error' => $e->getMessage(),
+        //     ], 500);
+        // }
+    }
+
+    public function renderGenerateVideo(Request $request){
+        $this->validate($request, [
+            'video_id' => 'required|string',
+        ]);
+    
+        try {
+            $user_id = $this->grabUserFromToken($request);
+        } catch (\Exception $e) {
+            if ($e->getMessage() === 'Expired token') {
+                return new Response(['status' => 'Failed', 'message' => 'Expired token'], 401);
+            } else {
+                return new Response(['status' => 'Failed', 'message' => 'Invalid token'], 401);
+            }
+        }
+    
+        $video_id = $request->video_id;
+        $client = new Client();
+    
+        // $options = [
+        //     'headers' => [
+        //         'Content-Type' => 'application/json',
+        //         'Authorization' => 'Bearer ' . env('ELAI_API_KEY'),
+        //     ],            
+        // ];
+    
+        // try {
+            // $response = $client->post("https://apis.elai.io/api/v1/videos/render/$video_id", $options);
+            // $statusCode = $response->getStatusCode();
+            // $body = $response->getBody()->getContents();
+            // $responseData = json_decode($body, true);
+
+
+            $response = $client->request('POST', "https://apis.elai.io/api/v1/videos/render/$video_id", [
+                'headers' => [
+                    'Authorization' => 'Bearer ' . env("ELAI_API_KEY"),
+                    'accept' => 'application/json',
+                    'content-type' => 'application/json'
+                ],
+            ]);
+
+            $statusCode = $response->getStatusCode();
+            $body = $response->getBody()->getContents();
+            $responseData = json_decode($body, true);
+
+
+            return new Response([
+                'success' => true,
+                'data' => $responseData,
+            ]);
+        // } catch (RequestException $e) {
+        //     $statusCode = $e->getResponse() ? $e->getResponse()->getStatusCode() : 500;
+        //     return new Response([
+        //         'success' => false,
+        //         'error' => $e->getMessage(),
+        //     ], $statusCode);
+        // } catch (\Exception $e) {
+        //     return new Response([
+        //         'success' => false,
+        //         'error' => $e->getMessage(),
+        //     ], 500);
+        // }
+    }
+
+    public function retrieveGeneratedVideo(Request $request){
+        $this->validate($request, [
+            'video_id' => 'required|string',
+        ]);
+    
+        try {
+            $user_id = $this->grabUserFromToken($request);
+        } catch (\Exception $e) {
+            if ($e->getMessage() === 'Expired token') {
+                return new Response(['status' => 'Failed', 'message' => 'Expired token'], 401);
+            } else {
+                return new Response(['status' => 'Failed', 'message' => 'Invalid token'], 401);
+            }
+        }
+    
+        $video_id = $request->video_id;
+        $client = new Client();
+    
+        $options = [
+            'headers' => [
+                'Content-Type' => 'application/json',
+                'Authorization' => 'Bearer ' . env('ELAI_API_KEY'),
+            ],            
+        ];
+    
+        // try {
+            $response = $client->post("https://apis.elai.io/api/v1/videos/render/$video_id", $options);
+            $statusCode = $response->getStatusCode();
+            $body = $response->getBody()->getContents();
+            $responseData = json_decode($body, true);
+
+            return new Response([
+                'success' => true,
+                'data' => $responseData,
+            ]);
+        // } catch (RequestException $e) {
+        //     $statusCode = $e->getResponse() ? $e->getResponse()->getStatusCode() : 500;
+        //     return new Response([
+        //         'success' => false,
+        //         'error' => $e->getMessage(),
+        //     ], $statusCode);
+        // } catch (\Exception $e) {
+        //     return new Response([
+        //         'success' => false,
+        //         'error' => $e->getMessage(),
+        //     ], 500);
+        // }
+    }
+
     public function generateYoutubePost(Request $request){
         $this->validate($request, [
             'idea' => 'required|string',
@@ -398,7 +759,7 @@ class KeywordsController extends Controller
                 }
 
                 // Generate Script
-                $scriptPrompt = "Create an engaging audio script on the topic: '$idea'. Provide key points, interesting facts, and insights to captivate the audience. Avoid specific cues like opening music, host prompts, and background music instructions. Each header and paragraph(unlimited text without linebreaks) should be separated by \n\n";
+                $scriptPrompt = "Create an engaging script on the topic: '$idea'. Provide key points, interesting facts, and insights to captivate the audience. Avoid specific cues like opening music, host prompts, and background music instructions. Each header and paragraph(unlimited text without linebreaks) should be separated by \n\n";
 
                 $options['json']['prompt'] = $scriptPrompt;
 
@@ -409,7 +770,7 @@ class KeywordsController extends Controller
                 $youtubePost->script = isset($scriptData['choices'][0]['text']) ? $scriptData['choices'][0]['text'] : null;
 
                 // Generate Thumbnail
-                $thumbnailPrompt = "Generate Ai Prompt to generate a suitable thumbnail for the topic: '$idea'";
+                $thumbnailPrompt = "Write me a Prompt to generate a suitable youtube thumbnail for the topic: '$idea'";
 
                 $options['json']['prompt'] = $thumbnailPrompt;
 
@@ -419,12 +780,26 @@ class KeywordsController extends Controller
 
                 $youtubePost->thumbnail = isset($thumbnailData['choices'][0]['text']) ? $thumbnailData['choices'][0]['text'] : null;
 
+
+                // Generate Video script
+                $videoScriptPrompt = "Write me a Prompt to generate a script for the idea: '$idea', You can use headers (strings up to 105 characters) followed by paragraphs (unlimited text without linebreaks). Each header and paragraph should be separated by \n\n.";
+
+                $options['json']['prompt'] = $videoScriptPrompt;
+
+                $videoScriptResponse = $client->post('https://api.openai.com/v1/completions', $options);
+                $videoScriptBody = $videoScriptResponse->getBody()->getContents();
+                $videoScriptData = json_decode($videoScriptBody, true);
+
+                $youtubePost->videoScript = isset($videoScriptData['choices'][0]['text']) ? $videoScriptData['choices'][0]['text'] : null;
+                
+
             } else {
                 $youtubePost->title = null;
                 $youtubePost->thumbnail = null;
                 $youtubePost->keywords = [];
                 $youtubePost->tags = [];
                 $youtubePost->hashtags = [];
+                $youtubePost->videoScript = "";
             }
     
             return new Response([
@@ -1191,7 +1566,6 @@ class KeywordsController extends Controller
         return new Response(['success' => true, 'data' => $savedIdeas], 200);
     }
     
-
     public function getAllSavedIdeas(Request $request) {
         $this->validate($request, [
             'email' => 'required',
@@ -1216,7 +1590,7 @@ class KeywordsController extends Controller
             ->get();
 
             if ($savedIdeas->isEmpty()) {
-                return response()->json(['success' => false, 'message' => 'No saved ideas found'], 200);
+                return response()->json(['success' => false, 'data' => [], 'message' => 'No saved ideas found'], 200);
             }
     
             return response()->json(['success' => true, 'data' => $savedIdeas], 200);
@@ -1336,7 +1710,7 @@ class KeywordsController extends Controller
             $existingOriginalPost->viewCount = $request->viewCount;
             $existingOriginalPost->save();
 
-            return new Response(['success' => true, 'message' => 'YouTube post updated'], 404);
+            return new Response(['success' => true, 'message' => 'YouTube post updated'], 200);
         }
     
         $originalPost = new OriginalPost();
@@ -1380,7 +1754,7 @@ class KeywordsController extends Controller
             ->get();
     
         if ($youtubePosts->isEmpty()) {
-            return new Response(['success' => true, 'data' => 'No saved YouTube posts'], 200);
+            return new Response(['success' => true, 'data' => [], "message" => 'No saved YouTube posts'], 200);
         }
     
         $formattedYoutubePosts = $youtubePosts->map(function ($post) {
@@ -1405,7 +1779,7 @@ class KeywordsController extends Controller
                 return new Response(['status' => 'Failed', 'message' => 'Invalid token'], 401);
             }
         }
-    
+
         $email = $request->email;
     
         $youtubePosts = OriginalPost::where('user_id', $user_id)
@@ -1414,7 +1788,7 @@ class KeywordsController extends Controller
             ->get();
     
         if ($youtubePosts->isEmpty()) {
-            return new Response(['success' => true, 'data' => 'No saved YouTube posts'], 200);
+            return new Response(['success' => true, 'data' => $user_id, 'message' => 'No saved YouTube posts'], 200);
         }
     
         $formattedYoutubePosts = $youtubePosts->map(function ($post) {
@@ -2031,7 +2405,7 @@ class KeywordsController extends Controller
         ->get();
 
         if ($userDraft->isEmpty()) {
-            return new Response(['success' => "trueNut", 'data' => 'No saved Drafts'], 200);
+            return new Response(['success' => "trueNut", 'data' => [], "message" => 'No saved Drafts'], 200);
         }
     
         return new Response(
@@ -2078,6 +2452,33 @@ class KeywordsController extends Controller
         }
     }
 
+    public function checkDraftExistence(Request $request) {
+        $this->validate($request, [
+            'video_id' => 'required',
+        ]);
+    
+        try {
+            $user_id = $this->grabUserFromToken($request);
+        } catch (\Exception $e) {
+            if ($e->getMessage() === 'Expired token') {
+                return new Response(['status' => 'Failed', 'message' => 'Expired token'], 401);
+            } else {
+                return new Response(['status' => 'Failed', 'message' => 'Invalid token'], 401);
+            }
+        }
+    
+        $video_id = $request->video_id;
+    
+        $draftExists = draftPost::where('user_id', $user_id)
+            ->where('video_id', $video_id)
+            ->exists();
+    
+        return new Response(
+            ['exists' => $draftExists],
+            200
+        );
+    }
+    
     // HELPER FUNCTIONS
     private function grabUserFromToken($request){
         $key = env('JWT_SECRET');

@@ -16,6 +16,7 @@ class UserAccessController extends Controller
             'lastName' => 'required|string',
             'email' => 'required|email',
             'password' => 'required|string|min:8',
+            'accountType' => 'nullable',
         ]);
     
         // Check if the user with the given email exists
@@ -31,6 +32,7 @@ class UserAccessController extends Controller
         $registration->lastname = $request->lastName;
         $registration->fullName = "$request->firstName $request->lastName";
         $registration->email = $request->email;
+        $registration->accountType = $request->accountType;
         $registration->password = Hash::make($request->password);
         $registration->save();
 

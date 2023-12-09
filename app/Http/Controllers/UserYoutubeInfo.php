@@ -933,7 +933,7 @@ class UserYoutubeInfo extends Controller {
         $videoIdsString = implode(',', $videoIds);
     
         // Make a new API call using the extracted video IDs to get video details
-        $videoDetailsResponse = $client->request('GET', "https://www.googleapis.com/youtube/v3/videos?key=" . env('TUBEDOMINATOR_GOOGLE_APIKEY') . "&channelId=$request->channel_ida&part=liveStreamingDetails,snippet,statistics,status,topicDetails,player&forContentOwner=true&maxResults=25&id=" . $videoIdsString, [
+        $videoDetailsResponse = $client->request('GET', "https://www.googleapis.com/youtube/v3/videos?key=" . env('TUBEDOMINATOR_GOOGLE_APIKEY') . "&channelId=$request->channel_id&part=liveStreamingDetails,snippet,statistics,status,topicDetails,player&forContentOwner=true&maxResults=25&id=" . $videoIdsString, [
             'headers' => [
                 'Authorization' => $gToken,
             ],
@@ -948,31 +948,30 @@ class UserYoutubeInfo extends Controller {
         // Process video details similar to combinedData
         foreach ($videoDetailsData['items'] as $index => $item) {
             $videoDetailItem = [
-                'publishedAt' => $item['snippet']['publishedAt'],
-                'title' => $item['snippet']['title'],
-                'description' => $item['snippet']['description'],
-                'thumbnails' => $item['snippet']['thumbnails']['standard'],
-                'categoryId' => $item['snippet']['categoryId'],
-                'channelId' => $item['snippet']['channelId'],
-                'channelTitle' => $item['snippet']['channelTitle'],
-                // 'defaultAudioLanguage' => $item['snippet']['defaultAudioLanguage'],
-                'liveBroadcastContent' => $item['snippet']['liveBroadcastContent'],
-                'player' => $item['player']['embedHtml'],
-                'videoId' => $videoIds[$index], // Use video ID from $videoIds array
-                'madeForKids' => $item['status']['madeForKids'],
-                'privacyStatus' => $item['status']['privacyStatus'],
-                'uploadStatus' => $item['status']['uploadStatus'],
-                'publicStatsViewable' => $item['status']['publicStatsViewable'],
-                'topicCategories' => $item['topicDetails']['topicCategories'],
-                // 'actualEndTime' => $item['liveStreamingDetails']['actualEndTime'],
-                // 'actualStartTime' => $item['liveStreamingDetails']['actualStartTime'],
-                // 'scheduledStartTime' => $item['liveStreamingDetails']['scheduledStartTime'],
-                'viewCount' => $item['statistics']['viewCount'],
-                'commentCount' => $item['statistics']['commentCount'],
-                'likeCount' => $item['statistics']['likeCount'],
-                'favoriteCount' => $item['statistics']['favoriteCount'],
+                'publishedAt' => isset($item['snippet']['publishedAt']) ? $item['snippet']['publishedAt'] : null,
+                'title' => isset($item['snippet']['title']) ? $item['snippet']['title'] : null,
+                'description' => isset($item['snippet']['description']) ? $item['snippet']['description'] : null,
+                'thumbnails' => isset($item['snippet']['thumbnails']['standard']) ? $item['snippet']['thumbnails']['standard'] : null,
+                'categoryId' => isset($item['snippet']['categoryId']) ? $item['snippet']['categoryId'] : null,
+                'channelId' => isset($item['snippet']['channelId']) ? $item['snippet']['channelId'] : null,
+                'channelTitle' => isset($item['snippet']['channelTitle']) ? $item['snippet']['channelTitle'] : null,
+                // 'defaultAudioLanguage' => isset($item['snippet']['defaultAudioLanguage']) ? $item['snippet']['defaultAudioLanguage'] : null,
+                'liveBroadcastContent' => isset($item['snippet']['liveBroadcastContent']) ? $item['snippet']['liveBroadcastContent'] : null,
+                'player' => isset($item['player']['embedHtml']) ? $item['player']['embedHtml'] : null,
+                'videoId' => isset($videoIds[$index]) ? $videoIds[$index] : null,
+                'madeForKids' => isset($item['status']['madeForKids']) ? $item['status']['madeForKids'] : null,
+                'privacyStatus' => isset($item['status']['privacyStatus']) ? $item['status']['privacyStatus'] : null,
+                'uploadStatus' => isset($item['status']['uploadStatus']) ? $item['status']['uploadStatus'] : null,
+                'publicStatsViewable' => isset($item['status']['publicStatsViewable']) ? $item['status']['publicStatsViewable'] : null,
+                'topicCategories' => isset($item['topicDetails']['topicCategories']) ? $item['topicDetails']['topicCategories'] : null,
+                // 'actualEndTime' => isset($item['liveStreamingDetails']['actualEndTime']) ? $item['liveStreamingDetails']['actualEndTime'] : null,
+                // 'actualStartTime' => isset($item['liveStreamingDetails']['actualStartTime']) ? $item['liveStreamingDetails']['actualStartTime'] : null,
+                // 'scheduledStartTime' => isset($item['liveStreamingDetails']['scheduledStartTime']) ? $item['liveStreamingDetails']['scheduledStartTime'] : null,
+                'viewCount' => isset($item['statistics']['viewCount']) ? $item['statistics']['viewCount'] : null,
+                'commentCount' => isset($item['statistics']['commentCount']) ? $item['statistics']['commentCount'] : null,
+                'likeCount' => isset($item['statistics']['likeCount']) ? $item['statistics']['likeCount'] : null,
+                'favoriteCount' => isset($item['statistics']['favoriteCount']) ? $item['statistics']['favoriteCount'] : null,
             ];
-    
             $videoDetails[] = $videoDetailItem;
         }
     
@@ -1178,43 +1177,6 @@ class UserYoutubeInfo extends Controller {
         return response()->json($videoDetails); // Return the processed video details as JSON
     }
 
-    // public function getKeywordVideos(Request $request) {
-    //     $client = new Client();
-    
-    // $response = $client->request('GET', "https://youtube-v311.p.rapidapi.com/search/?part=snippet&maxResults=5&order=relevance&q=web%20development&safeSearch=none&  type=video", [
-    //         'headers' => [
-    //             'X-RapidAPI-Host' => 'youtube-v311.p.rapidapi.com',
-    //             'X-RapidAPI-Key' => env("RapidApiKey"),
-    //         ],
-    //     ]);
-    
-    //     $jsonResponse = (string) $response->getBody();
-    //     $dataArray = json_decode($jsonResponse, true);
-        
-    //     $videoIds = array_column($dataArray['items'], 'videoId');
-    //     return $videoIds;
-        
-    //     $videosData = [];
-    
-    //     foreach ($videoIds as $videoId) {
-    //     return $videoId->videoId;
-
-    //         $videoResponse = $client->request('GET', "https://youtube-v3-lite.p.rapidapi.com/videos?id={$videoId->videoId}&part=snippet%2CcontentDetails%2Cstatistics", [
-    //             'headers' => [
-    //                 'X-RapidAPI-Host' => 'youtube-v3-lite.p.rapidapi.com',
-    //                 'X-RapidAPI-Key' => env("RapidApiKey"),
-    //             ],
-    //         ]);
-    
-    //         $videoJsonResponse = (string) $videoResponse->getBody();
-    //         $videoData = json_decode($videoJsonResponse, true);
-    
-    //         $videosData[] = $videoData;
-    //     }
-    
-    //     return new Response($videosData);
-    // }
-    
     public function getChannels(Request $request) {
         $this->validate($request, [
             'channelTitle' => 'required'
@@ -1276,16 +1238,6 @@ class UserYoutubeInfo extends Controller {
     }
 
     public function saveUserYoutubeInfo(Request $request){
-        // $this->validate($request, [
-        //     'channel_name' => 'required|string',
-        //     'channel_id' => 'required|string',
-        //     'channel_language' => 'required|string',
-        //     'description' => 'required|string',
-        //     'business_email' => 'required|string',
-        //     'accept_terms' => 'required|string',
-        //     'keywords' => 'required|string',
-        // ]);
-
         $userBusinessEmail =  $request->business_email;
         $user_id =  $request->user_id;
         if ($this->userExists($userBusinessEmail, $user_id)) {

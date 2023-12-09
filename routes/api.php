@@ -4,7 +4,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\KeywordsController;
 use App\Http\Controllers\UserYoutubeInfo; 
-use App\Http\Controllers\UserAccessController; 
+use App\Http\Controllers\UserAccessController;
+use App\Http\Controllers\UserAdministration;
 
 
 /*
@@ -91,6 +92,23 @@ Route::middleware(['api.key'])->group(function () {
     
     // DRAFT POST
     Route::post('saveDraftPost', [KeywordsController::class, 'saveDraftPost']);
+    Route::get('getDraftPost', [KeywordsController::class, 'getDraftPost']);
     Route::delete('deleteDraftPost', [KeywordsController::class, 'deleteDraftPost']);
-
+    Route::get('checkDraftExistence', [KeywordsController::class, 'checkDraftExistence']);
+    
+    
+    // VIDEO GENERATION
+    Route::get('getAllVideoTemplates', [KeywordsController::class, 'getAllVideoTemplates']);
+    Route::post('generateVideoFromText', [KeywordsController::class, 'generateVideoFromText']);
+    Route::post('generateVideoFromUrl', [KeywordsController::class, 'generateVideoFromUrl']);
+    Route::post('generateSlides', [KeywordsController::class, 'generateSlides']);
+    Route::post('renderGenerateVideo', [KeywordsController::class, 'renderGenerateVideo']);
+    Route::post('retrieveGeneratedVideo', [KeywordsController::class, 'retrieveGeneratedVideo']);
+    
+    
+    // USER ADMINISTRATION
+    Route::get('getAllUsers', [UserAdministration::class, 'getAllUsers']);
+    Route::get('getUser', [UserAdministration::class, 'getUser']);
+    Route::put('update', [UserAdministration::class, 'update']);
+    Route::delete('delete', [UserAdministration::class, 'delete']);
 });
