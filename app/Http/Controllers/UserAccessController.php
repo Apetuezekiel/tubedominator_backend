@@ -103,10 +103,83 @@ class UserAccessController extends Controller
             return response()->json(['success' => false, 'message' => "No user found"], 401);
         }
     
-        return response()->json([
+        $response = [
             'success' => true,
-            'apiKey' => $user->apiKey,
-            'clientId' => $user->ClientId,
-        ]);
+            'user' => [
+                'firstName' => $user->firstName,
+                'lastName' => $user->lastName,
+                'email' => $user->email,
+                'ClientId' => $user->ClientId,
+                'apiKey' => $user->apiKey,
+                'fullName' => $user->fullName
+            ],
+        ];
+
+        return response()->json($response);
+    
     }
+
+    public function saveUser(Request $request) {
+        $validatedData = $request->validate([
+            'email' => 'required|email',
+            'firstName' => 'nullable|string',
+            'lastName' => 'nullable|string',
+            'ClientId' => 'nullable|string',
+            'apiKey' => 'nullable|string',
+            'fullName' => 'nullable|string',
+        ]);
+    
+        // Assuming your Registration model has the fields mentioned above
+        $user = Registration::where('email', $validatedData['email'])->first();
+        
+        if (!$user) {
+            return response()->json(['success' => false, 'message' => "No user found"], 404);
+        }
+    
+        // Update user data only if the fields exist in the request
+        if (isset($validatedData['firstName'])) {
+            $user->firstName = $validatedData['firstName'];
+        }
+    
+        if (isset($validatedData['lastName'])) {
+            $user->lastName = $validatedData['lastName'];
+        }
+    
+        if (isset($validatedData['ClientId'])) {
+            $user->ClientId = $validatedData['ClientId'];
+        }
+    
+        if (isset($validatedData['apiKey'])) {
+            $user->apiKey = $validatedData['apiKey'];
+        }
+    
+        if (isset($validatedData['fullName'])) {
+            $user->fullName = $validatedData['fullName'];
+        }
+    
+        // Save the updated user data
+        $user->save();
+    
+        return response()->json(['success' => true, 'message' => 'User data saved successfully']);
+    }
+    
+    public function checkClientAndApiKey(Request $request) {
+        $validatedData = $request->validate([
+            'email' => 'required|email',
+        ]);
+    
+        $user = Registration::where('email', $validatedData['email'])->first();
+    
+        if (!$user) {
+            return response()->json(['success' => false, 'message' => "No user found"], 404);
+        }
+    
+        if ($user->ClientId && $user->apiKey) {
+            return response()->json(['success' => true, 'message' => "User has set ClientId and apiKey"]);
+        } else {
+            return response()->json(['success' => false, 'message' => "User has not set ClientId and apiKey"]);
+        }
+    }
+    
+    
 }
