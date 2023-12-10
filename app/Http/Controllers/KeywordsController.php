@@ -142,15 +142,15 @@ class KeywordsController extends Controller
             'languageCode' => 'required|string',
         ]);
         
-        try {
-            $user_id = $this->grabUserFromToken($request);
-        } catch (\Exception $e) {
-            if ($e->getMessage() === 'Expired token') {
-                return new Response(['status' => 'Failed', 'message' => 'Expired token'], 401);
-            } else {
-                return new Response(['status' => 'Failed', 'message' => 'Invalid token'], 401);
-            }
-        }
+        // try {
+        //     $user_id = $this->grabUserFromToken($request);
+        // } catch (\Exception $e) {
+        //     if ($e->getMessage() === 'Expired token') {
+        //         return new Response(['status' => 'Failed', 'message' => 'Expired token'], 401);
+        //     } else {
+        //         return new Response(['status' => 'Failed', 'message' => 'Invalid token'], 401);
+        //     }
+        // }
         
         // Get the values from the request
         $keyword = $request->keyword;
@@ -260,15 +260,15 @@ class KeywordsController extends Controller
             'prompt' => 'required|string',
         ]);
     
-        try {
-            $user_id = $this->grabUserFromToken($request);
-        } catch (\Exception $e) {
-            if ($e->getMessage() === 'Expired token') {
-                return new Response(['status' => 'Failed', 'message' => 'Expired token'], 401);
-            } else {
-                return new Response(['status' => 'Failed', 'message' => 'Invalid token'], 401);
-            }
-        }
+        // try {
+        //     $user_id = $this->grabUserFromToken($request);
+        // } catch (\Exception $e) {
+        //     if ($e->getMessage() === 'Expired token') {
+        //         return new Response(['status' => 'Failed', 'message' => 'Expired token'], 401);
+        //     } else {
+        //         return new Response(['status' => 'Failed', 'message' => 'Invalid token'], 401);
+        //     }
+        // }
     
         $prompt = $request->prompt;
         $client = new Client();
@@ -319,15 +319,15 @@ class KeywordsController extends Controller
     }
 
     public function getAllVideoTemplates(Request $request){    
-        try {
-            $user_id = $this->grabUserFromToken($request);
-        } catch (\Exception $e) {
-            if ($e->getMessage() === 'Expired token') {
-                return new Response(['status' => 'Failed', 'message' => 'Expired token'], 401);
-            } else {
-                return new Response(['status' => 'Failed', 'message' => 'Invalid token'], 401);
-            }
-        }
+        // try {
+        //     $user_id = $this->grabUserFromToken($request);
+        // } catch (\Exception $e) {
+        //     if ($e->getMessage() === 'Expired token') {
+        //         return new Response(['status' => 'Failed', 'message' => 'Expired token'], 401);
+        //     } else {
+        //         return new Response(['status' => 'Failed', 'message' => 'Invalid token'], 401);
+        //     }
+        // }
     
         $prompt = $request->prompt;
         $client = new Client();
@@ -375,15 +375,15 @@ class KeywordsController extends Controller
             'templateId' => 'required|string',
         ]);
     
-        try {
-            $user_id = $this->grabUserFromToken($request);
-        } catch (\Exception $e) {
-            if ($e->getMessage() === 'Expired token') {
-                return new Response(['status' => 'Failed', 'message' => 'Expired token'], 401);
-            } else {
-                return new Response(['status' => 'Failed', 'message' => 'Invalid token'], 401);
-            }
-        }
+        // try {
+        //     $user_id = $this->grabUserFromToken($request);
+        // } catch (\Exception $e) {
+        //     if ($e->getMessage() === 'Expired token') {
+        //         return new Response(['status' => 'Failed', 'message' => 'Expired token'], 401);
+        //     } else {
+        //         return new Response(['status' => 'Failed', 'message' => 'Invalid token'], 401);
+        //     }
+        // }
     
         $prompt = $request->prompt;
         $templateId = $request->templateId;
@@ -684,15 +684,15 @@ class KeywordsController extends Controller
             'idea' => 'required|string',
         ]);
     
-        try {
-            $user_id = $this->grabUserFromToken($request);
-        } catch (\Exception $e) {
-            if ($e->getMessage() === 'Expired token') {
-                return new Response(['status' => 'Failed', 'message' => 'Expired token'], 401);
-            } else {
-                return new Response(['status' => 'Failed', 'message' => 'Invalid token'], 401);
-            }
-        }
+        // try {
+        //     $user_id = $this->grabUserFromToken($request);
+        // } catch (\Exception $e) {
+        //     if ($e->getMessage() === 'Expired token') {
+        //         return new Response(['status' => 'Failed', 'message' => 'Expired token'], 401);
+        //     } else {
+        //         return new Response(['status' => 'Failed', 'message' => 'Invalid token'], 401);
+        //     }
+        // }
     
         $idea = $request->idea;
         $client = new Client();
@@ -839,15 +839,15 @@ class KeywordsController extends Controller
     
         $gToken = $request->header("gToken");
     
-        try {
-            $user_id = $this->grabUserFromToken($request);
-        } catch (\Exception $e) {
-            if ($e->getMessage() === 'Expired token') {
-                return new Response(['status' => 'Failed', 'message' => 'Expired token'], 401);
-            } else {
-                return new Response(['status' => 'Failed', 'message' => 'Invalid token'], 401);
-            }
-        }
+        // try {
+        //     $user_id = $this->grabUserFromToken($request);
+        // } catch (\Exception $e) {
+        //     if ($e->getMessage() === 'Expired token') {
+        //         return new Response(['status' => 'Failed', 'message' => 'Expired token'], 401);
+        //     } else {
+        //         return new Response(['status' => 'Failed', 'message' => 'Invalid token'], 401);
+        //     }
+        // }
 
         
         $videoDetails = $this->serpYoutubeData($request->keyword)->video_results;
@@ -1459,25 +1459,26 @@ class KeywordsController extends Controller
             'category' => 'required',
         ]);
 
-        try {
-            $user_id = $this->grabUserFromToken($request);
-        } catch (\Exception $e) {
-            if ($e->getMessage() === 'Expired token') {
-                return new Response(['status' => 'Failed', 'message' => 'Expired token'], 401);
-            } else {
-                return new Response(['status' => 'Failed', 'message' => 'Invalid token'], 401);
-            }
-        }
+        // try {
+        //     $user_id = $this->grabUserFromToken($request);
+        // } catch (\Exception $e) {
+        //     if ($e->getMessage() === 'Expired token') {
+        //         return new Response(['status' => 'Failed', 'message' => 'Expired token'], 401);
+        //     } else {
+        //         return new Response(['status' => 'Failed', 'message' => 'Invalid token'], 401);
+        //     }
+        // }
 
         $email = $request->email;
         $newVideoIdea = $request->video_ideas;
-        $fetchSavedIdea = SavedIdea::where('video_ideas', $newVideoIdea)->where("user_id", $user_id)->first();
+        $fetchSavedIdea = SavedIdea::where('video_ideas', $newVideoIdea)->where("email", $email)->first();
+        // $fetchSavedIdea = SavedIdea::where('video_ideas', $newVideoIdea)->where("user_id", $user_id)->first();
 
         // return $fetchSavedIdea;
 
         if (!$fetchSavedIdea) { 
             $savedIdea = new SavedIdea(); 
-            $savedIdea->user_id = $user_id;
+            // $savedIdea->user_id = $user_id;
             $savedIdea->email = $email;
             $savedIdea->video_ideas = $request->video_ideas;
             $savedIdea->search_volume = $request->search_volume;
@@ -1537,21 +1538,21 @@ class KeywordsController extends Controller
             'category' => 'required',
         ]);
     
-        try {
-            $user_id = $this->grabUserFromToken($request);
-        } catch (\Exception $e) {
-            if ($e->getMessage() === 'Expired token') {
-                return new Response(['status' => 'Failed', 'message' => 'Expired token'], 401);
-            } else {
-                return new Response(['status' => 'Failed', 'message' => 'Invalid token'], 401);
-            }
-        }   
+        // try {
+        //     $user_id = $this->grabUserFromToken($request);
+        // } catch (\Exception $e) {
+        //     if ($e->getMessage() === 'Expired token') {
+        //         return new Response(['status' => 'Failed', 'message' => 'Expired token'], 401);
+        //     } else {
+        //         return new Response(['status' => 'Failed', 'message' => 'Invalid token'], 401);
+        //     }
+        // }   
     
         $email = $request->email;
         $category = $request->category;
     
-        $savedIdeasQuery = SavedIdea::where('user_id', $user_id)
-            ->where('email', $email)
+        $savedIdeasQuery = SavedIdea::where('email', $email)
+            // ->where('user_id', $user_id)
             ->orderBy('updated_at', 'desc');
     
         // Add category filter only if it's not "all"
@@ -1573,21 +1574,21 @@ class KeywordsController extends Controller
             'email' => 'required',
         ]);
 
-        try {
-            $user_id = $this->grabUserFromToken($request);
-        } catch (\Exception $e) {
-            if ($e->getMessage() === 'Expired token') {
-                return new Response(['status' => 'Failed', 'message' => 'Expired token'], 401);
-            } else {
-                return new Response(['status' => 'Failed', 'message' => 'Invalid token'], 401);
-            }
-        }   
+        // try {
+        //     $user_id = $this->grabUserFromToken($request);
+        // } catch (\Exception $e) {
+        //     if ($e->getMessage() === 'Expired token') {
+        //         return new Response(['status' => 'Failed', 'message' => 'Expired token'], 401);
+        //     } else {
+        //         return new Response(['status' => 'Failed', 'message' => 'Invalid token'], 401);
+        //     }
+        // }   
     
         $email = $request->email;
     
         // try {    
-            $savedIdeas = SavedIdea::where('user_id', $user_id)
-            ->where('email', $email)
+            $savedIdeas = SavedIdea::where('email', $email)
+            // ->where('user_id', $user_id)
             ->orderBy('updated_at', 'desc')
             ->get();
 
@@ -1641,22 +1642,22 @@ class KeywordsController extends Controller
             'email' => 'required|email',
         ]);
     
-        try {
-            $user_id = $this->grabUserFromToken($request);
-        } catch (\Exception $e) {
-            if ($e->getMessage() === 'Expired token') {
-                return new Response(['status' => 'Failed', 'message' => 'Expired token'], 401);
-            } else {
-                return new Response(['status' => 'Failed', 'message' => 'Invalid token'], 401);
-            }
-        }
+        // try {
+        //     $user_id = $this->grabUserFromToken($request);
+        // } catch (\Exception $e) {
+        //     if ($e->getMessage() === 'Expired token') {
+        //         return new Response(['status' => 'Failed', 'message' => 'Expired token'], 401);
+        //     } else {
+        //         return new Response(['status' => 'Failed', 'message' => 'Invalid token'], 401);
+        //     }
+        // }
     
         $email = $request->email;
 
         try {
             $savedIdea = SavedIdea::findOrFail($id);
     
-            if ($savedIdea->user_id === $user_id && $savedIdea->email === $email) {
+            if ($savedIdea->email === $email) {
                 $savedIdea->delete();
                 return response()->json(['success' => true, 'message' => 'Idea deleted successfully'], 200);
             } else {
@@ -2044,17 +2045,19 @@ class KeywordsController extends Controller
             'email' => 'required',
         ]);
 
-        try {
-            $user_id = $this->grabUserFromToken($request);
-        } catch (\Exception $e) {
-            if ($e->getMessage() === 'Expired token') {
-                return new Response(['status' => 'Failed', 'message' => 'Expired token'], 401);
-            } else {
-                return new Response(['status' => 'Failed', 'message' => 'Invalid token'], 401);
-            }
-        }
+        // try {
+        //     $user_id = $this->grabUserFromToken($request);
+        // } catch (\Exception $e) {
+        //     if ($e->getMessage() === 'Expired token') {
+        //         return new Response(['status' => 'Failed', 'message' => 'Expired token'], 401);
+        //     } else {
+        //         return new Response(['status' => 'Failed', 'message' => 'Invalid token'], 401);
+        //     }
+        // }
 
-        $existingUserKeyword = userSavedKeyword::where('keyword', $request->keyword)->where('user_id', $user_id)->first();
+        $email = $request->email;
+
+        $existingUserKeyword = userSavedKeyword::where('keyword', $request->keyword)->where('email', $email)->first();
         if ($existingUserKeyword) {
             $existingUserKeyword->search_volume = $request->search_volume;
             $existingUserKeyword->save();
@@ -2062,12 +2065,10 @@ class KeywordsController extends Controller
 
         }
 
-        $email = $request->email;
-
         $userKeyword = new userSavedKeyword();
         $userKeyword->keyword = $request->keyword;
         $userKeyword->email = $email;
-        $userKeyword->user_id = $user_id;
+        // $userKeyword->user_id = $user_id;
         $userKeyword->search_volume = $request->search_volume;
         $userKeyword->save();
 
@@ -2079,20 +2080,20 @@ class KeywordsController extends Controller
             'email' => 'required',
         ]);
 
-        try {
-            $user_id = $this->grabUserFromToken($request);
-        } catch (\Exception $e) {
-            if ($e->getMessage() === 'Expired token') {
-                return new Response(['status' => 'Failed', 'message' => 'Expired token'], 401);
-            } else {
-                return new Response(['status' => 'Failed', 'message' => 'Invalid token'], 401);
-            }
-        }
+        // try {
+        //     $user_id = $this->grabUserFromToken($request);
+        // } catch (\Exception $e) {
+        //     if ($e->getMessage() === 'Expired token') {
+        //         return new Response(['status' => 'Failed', 'message' => 'Expired token'], 401);
+        //     } else {
+        //         return new Response(['status' => 'Failed', 'message' => 'Invalid token'], 401);
+        //     }
+        // }
 
         $email = $request->email;
 
-        $userKeywords = userSavedKeyword::where('user_id', $user_id)
-            ->where('email', $email)
+        $userKeywords = userSavedKeyword::where('email', $email)
+            // ->where('user_id', $user_id)
             ->select('keyword', 'email', 'search_volume', 'created_at', 'id')
             ->orderBy('created_at', 'desc') // Sort by 'created_at' in descending order
             ->get();
