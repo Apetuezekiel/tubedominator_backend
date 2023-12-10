@@ -28,6 +28,7 @@ Route::middleware(['api.key'])->group(function () {
     Route::post('sign-in', [UserAccessController::class, 'login']);
     Route::post('sign-up', [UserAccessController::class, 'register']);
     Route::post('addUserId', [UserAccessController::class, 'addUserId']);
+    Route::get('fetchUser', [UserAccessController::class, 'fetchUser']);
 
     Route::get('dataFillerKeyword', [KeywordsController::class, 'dataFillerKeyword']);
     Route::post('saveUserYoutubeInfo', [UserYoutubeInfo::class, 'saveUserYoutubeInfo']);

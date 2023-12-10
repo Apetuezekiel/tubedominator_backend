@@ -33,6 +33,7 @@ class UserAccessController extends Controller
         $registration->fullName = "$request->firstName $request->lastName";
         $registration->email = $request->email;
         $registration->accountType = $request->accountType;
+        $registration->accountType = $request->accountType;
         $registration->password = Hash::make($request->password);
         $registration->save();
 
@@ -89,6 +90,23 @@ class UserAccessController extends Controller
             'userRecordId' => $user->id,
             'user_id' => $user->user_id,
             'firstName' => $user->firstName
+        ]);
+    }
+
+    public function fetchUser(Request $request) {
+        $validatedData = $request->validate([
+            'email' => 'required|email',
+        ]);
+    
+        $user = Registration::where('email', $validatedData['email'])->first();
+        if (!$user) {
+            return response()->json(['success' => false, 'message' => "No user found"], 401);
+        }
+    
+        return response()->json([
+            'success' => true,
+            'apiKey' => $user->apiKey,
+            'clientId' => $user->ClientId,
         ]);
     }
 }

@@ -175,7 +175,7 @@ class UserYoutubeInfo extends Controller {
         $gToken = $request->header("gToken");
 
         $client = new Client();
-    
+
         $response = $client->request('GET', "https://www.googleapis.com/youtube/v3/channels?key=" . env('TUBEDOMINATOR_GOOGLE_APIKEY') . "&part=contentDetails,snippet,statistics&mine=true", [
             'headers' => [
                 'Authorization' => "Bearer $gToken",
@@ -1516,6 +1516,20 @@ class UserYoutubeInfo extends Controller {
      private function grabUsergAccessToken($request){
         $token = explode(" ", $request->header("authorization"))[1];
         return $token;
+    }
+
+    // HELPER FUNCTIONS
+    private function chooseGoogleAppApiKey($email) {
+        $user = Registration::where('email', $email)->first();
+        $appId = $user->gAppId;
+    
+        if ($appId === "NULL" || $appId === 1) {
+            $appId = env('TUBEDOMINATOR_GOOGLE_APIKEY');
+        } else {
+            $appId = env('TUBEDOMINATOR_GOOGLE_APIKEY2');
+        }
+    
+        return $appId;
     }
 
 

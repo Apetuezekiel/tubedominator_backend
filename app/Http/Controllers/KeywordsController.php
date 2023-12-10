@@ -17,6 +17,8 @@ use Firebase\JWT\Key;
 use Illuminate\Support\Facades\Storage;
 use Carbon\Carbon;
 use Carbon\CarbonInterval;
+use App\Models\Registration;
+
 
 class KeywordsController extends Controller
 {
@@ -2480,6 +2482,20 @@ class KeywordsController extends Controller
     }
     
     // HELPER FUNCTIONS
+    private function chooseGoogleAppApiKey($user_id) {
+        $user = Registration::where('user_id', $user_id)->first();
+        $appId = $user->appId;
+    
+        if ($appId === "NULL" || $appId === 1) {
+            $appId = env('TUBEDOMINATOR_GOOGLE_APIKEY');
+        } else {
+            $appId = env('TUBEDOMINATOR_GOOGLE_APIKEY2');
+        }
+    
+        return $appId;
+    }
+    
+
     private function grabUserFromToken($request){
         $key = env('JWT_SECRET');
         $token = explode(" ", $request->header("authorization"))[1];
